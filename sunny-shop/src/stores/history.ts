@@ -32,6 +32,11 @@ export const useHistoryStore = defineStore('history', () => {
     persist()
   }
 
+  function deleteSession(id: string) {
+    sessions.value = sessions.value.filter(s => s.id !== id)
+    persist()
+  }
+
   function clearHistory() {
     sessions.value = []
     persist()
@@ -55,5 +60,5 @@ export const useHistoryStore = defineStore('history', () => {
     sessions.value.length > 0 ? (sessions.value[0] ?? null) : null
   )
 
-  return { sessions, addSession, clearHistory, getFrequentProductIds, lastSession }
+  return { sessions, addSession, deleteSession, clearHistory, getFrequentProductIds, lastSession }
 })

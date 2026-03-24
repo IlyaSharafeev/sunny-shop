@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import html2canvas from 'html2canvas'
 import { useProductsStore, STORES } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
+import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
 import type { ShoppingSession } from '@/stores/history'
 
@@ -13,6 +14,7 @@ const props = defineProps<{
 
 const productsStore = useProductsStore()
 const sessionStore = useSessionStore()
+const historyStore = useHistoryStore()
 const i18n = useI18nStore()
 const router = useRouter()
 
@@ -44,6 +46,13 @@ const itemsByStore = computed(() => {
   }
   return result
 })
+
+function handleDelete() {
+  if (confirm(i18n.t('history.deleteConfirm'))) {
+    historyStore.deleteSession(props.session.id)
+    if ('vibrate' in navigator) navigator.vibrate([20, 50, 20])
+  }
+}
 
 function handleRepeat() {
   sessionStore.loadFromSession(props.session.items)
@@ -89,13 +98,16 @@ async function handleShare() {
 
 <template>
   <div ref="cardEl" class="history-card">
-    <button class="card-header" @click="expanded = !expanded">
+    <div class="card-header" @click="expanded = !expanded">
       <div class="header-left">
         <span class="date">{{ formattedDate }}</span>
         <span class="count">{{ i18n.t('history.items', { n: session.items.length }) }}</span>
       </div>
-      <span class="chevron" :class="{ open: expanded }">›</span>
-    </button>
+      <div class="card-actions-row">
+        <button class="card-delete-btn" @click.stop="handleDelete" :title="i18n.t('history.deleteConfirm')">🗑</button>
+        <span class="chevron" :class="{ open: expanded }">›</span>
+      </div>
+    </div>
 
     <Transition name="expand">
       <div v-if="expanded" class="card-body">
@@ -135,7 +147,35 @@ async function handleShare() {
   justify-content: space-between;
   padding: 14px 16px;
   min-height: 56px;
-  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-delete-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.card-delete-btn:active {
+  background: var(--danger);
+  color: white;
+  transform: scale(0.88);
 }
 
 .header-left {

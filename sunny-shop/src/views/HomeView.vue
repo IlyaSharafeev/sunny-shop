@@ -188,7 +188,7 @@ watch(shakeDetected, (v) => {
 <template>
   <div class="home">
     <!-- Fixed top header -->
-    <header class="top-header" style="position: relative;">
+    <header class="top-header">
       <span class="app-title">{{ i18n.t('app.title') }}</span>
       <div class="header-actions">
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>

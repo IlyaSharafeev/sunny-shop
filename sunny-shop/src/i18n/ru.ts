@@ -45,4 +45,5 @@ export default {
   'theme.custom': 'Свой цвет',
   'theme.light':  'Светлая',
   'theme.dark':   'Тёмная',
+  'history.deleteConfirm': 'Удалить эту покупку?',
 } as Record<string, string>
