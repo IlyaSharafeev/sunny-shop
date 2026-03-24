@@ -36,4 +36,9 @@ export default {
   'pwa.installBtn': 'Встановити',
   'store.empty': 'Тут ще немає продуктів',
   'store.hint': 'Натисни на продукт щоб додати',
+  'search.placeholder': 'Пошук продуктів...',
+  'search.noResults': 'Нічого не знайдено',
+  'sort.default': 'За замовч.',
+  'sort.frequency': 'Часті',
+  'addProduct.stores': 'Магазини',
 } as Record<string, string>

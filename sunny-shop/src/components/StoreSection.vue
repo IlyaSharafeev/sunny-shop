@@ -1,28 +1,45 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useProductsStore, type Store } from '@/stores/products'
+import { useProductsStore, type Store, type Product } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
+import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
 import ProductRow from './ProductRow.vue'
 import AddProductForm from './AddProductForm.vue'
 
 const props = defineProps<{
   store: Store
+  sortMode: 'default' | 'alpha' | 'frequency'
 }>()
 
 const productsStore = useProductsStore()
 const sessionStore = useSessionStore()
+const historyStore = useHistoryStore()
 const i18n = useI18nStore()
 
 const products = computed(() => productsStore.productsByStore.get(props.store.id) ?? [])
 
-// Checked items sink to bottom; unchecked stay at top
+function applySort(arr: Product[]): Product[] {
+  if (props.sortMode === 'alpha') {
+    return [...arr].sort((a, b) => a.name.localeCompare(b.name, 'uk'))
+  }
+  if (props.sortMode === 'frequency') {
+    const freq = historyStore.getFrequentProductIds(999)
+    return [...arr].sort((a, b) => {
+      const ai = freq.indexOf(a.id)
+      const bi = freq.indexOf(b.id)
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
+  }
+  return arr
+}
+
+// Checked items sink to bottom; sort applied within each group
 const sortedProducts = computed(() => {
-  return [...products.value].sort((a, b) => {
-    const aChecked = sessionStore.isChecked(a.id) ? 1 : 0
-    const bChecked = sessionStore.isChecked(b.id) ? 1 : 0
-    return aChecked - bChecked
-  })
+  const list = products.value
+  const unchecked = list.filter(p => !sessionStore.isChecked(p.id))
+  const checked = list.filter(p => sessionStore.isChecked(p.id))
+  return [...applySort(unchecked), ...applySort(checked)]
 })
 
 const checkedInStore = computed(() =>

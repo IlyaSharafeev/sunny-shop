@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import html2canvas from 'html2canvas'
 import { useProductsStore, STORES } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
@@ -15,7 +16,9 @@ const sessionStore = useSessionStore()
 const i18n = useI18nStore()
 const router = useRouter()
 
+const cardEl = ref<HTMLElement>()
 const expanded = ref(false)
+const isSharing = ref(false)
 
 const formattedDate = computed(() => {
   const d = new Date(props.session.date)
@@ -47,10 +50,45 @@ function handleRepeat() {
   if ('vibrate' in navigator) navigator.vibrate([10, 40, 10])
   router.push('/')
 }
+
+async function handleShare() {
+  if (!cardEl.value) return
+  isSharing.value = true
+  try {
+    const canvas = await html2canvas(cardEl.value, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+    })
+    canvas.toBlob(async (blob) => {
+      if (!blob) return
+      const filename = `zakup-${props.session.date.slice(0, 10)}.png`
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: 'Закуп 🛒', files: [file] })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    }, 'image/png')
+  } catch (e) {
+    console.error('Share error:', e)
+  } finally {
+    isSharing.value = false
+  }
+}
 </script>
 
 <template>
-  <div class="history-card">
+  <div ref="cardEl" class="history-card">
     <button class="card-header" @click="expanded = !expanded">
       <div class="header-left">
         <span class="date">{{ formattedDate }}</span>
@@ -68,9 +106,14 @@ function handleRepeat() {
           </div>
         </div>
 
-        <button class="repeat-btn" @click.stop="handleRepeat">
-          🔁 {{ i18n.t('history.repeat') }}
-        </button>
+        <div class="card-actions">
+          <button class="repeat-btn" @click.stop="handleRepeat">
+            🔁 {{ i18n.t('history.repeat') }}
+          </button>
+          <button class="share-btn-small" @click.stop="handleShare" :disabled="isSharing">
+            {{ isSharing ? '⏳' : '📤' }}
+          </button>
+        </div>
       </div>
     </Transition>
   </div>
@@ -146,9 +189,18 @@ function handleRepeat() {
   padding: 2px 0;
 }
 
+.card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
 .repeat-btn {
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px 16px;
   border-radius: 20px;
@@ -158,14 +210,33 @@ function handleRepeat() {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  margin-top: 12px;
-  width: 100%;
-  justify-content: center;
 }
 
 .repeat-btn:active {
   background: rgba(76, 175, 80, 0.08);
   transform: scale(0.97);
+}
+
+.share-btn-small {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.share-btn-small:active {
+  transform: scale(0.92);
+}
+
+.share-btn-small:disabled {
+  opacity: 0.5;
 }
 
 .expand-enter-active {
