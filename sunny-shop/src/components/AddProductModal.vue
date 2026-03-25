@@ -105,7 +105,7 @@ function onOverlayClick(e: MouseEvent) {
 /* ── Bottom sheet card ── */
 .modal-sheet {
   position: fixed;
-  bottom: 0;
+  bottom: 64px;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
