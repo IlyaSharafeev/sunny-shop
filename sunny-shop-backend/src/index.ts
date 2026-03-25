@@ -29,6 +29,13 @@ app.use(
   })
 )
 
+// Cross-Origin headers required for Google OAuth popup flow
+app.use((_req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none')
+  next()
+})
+
 // Rate limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

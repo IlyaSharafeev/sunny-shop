@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+
+let _logged = false
 
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = localStorage.getItem('refreshToken')
@@ -21,6 +23,10 @@ async function tryRefresh(): Promise<boolean> {
 
 async function request<T = any>(method: string, path: string, body?: any): Promise<T | null> {
   const token = localStorage.getItem('accessToken')
+  if (!_logged) {
+    console.log('[useApi] BASE_URL =', BASE_URL)
+    _logged = true
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
