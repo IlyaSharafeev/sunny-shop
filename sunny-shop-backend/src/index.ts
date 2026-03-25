@@ -81,8 +81,8 @@ app.use('/api/settings', apiLimiter, settingsRoutes)
 // Global error handler
 app.use(errorHandler)
 
-const port = parseInt(config.port, 10)
-app.listen(port, () => {
+const port = parseInt(process.env.PORT || '3000', 10)
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server running on port ${port}`)
 })
 
