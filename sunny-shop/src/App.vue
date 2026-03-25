@@ -5,6 +5,7 @@ import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
 import { useProductsStore } from '@/stores/products'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import { useTheme } from '@/composables/useTheme'
 import BottomNav from '@/components/BottomNav.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
@@ -13,6 +14,7 @@ const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
 const productsStore = useProductsStore()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 useTheme() // load saved theme before first render
 
 onMounted(async () => {
@@ -25,6 +27,7 @@ onMounted(async () => {
       productsStore.fetchFromServer(),
       sessionStore.fetchFromServer(),
       historyStore.fetchFromServer(),
+      settingsStore.fetchFromServer(),
     ])
   }
 

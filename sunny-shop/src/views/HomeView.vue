@@ -2,6 +2,8 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import confetti from 'canvas-confetti'
+import { animate } from 'motion'
+import type { AnimationOptions } from 'motion'
 import { STORES, type StoreId, useProductsStore } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
@@ -14,6 +16,7 @@ import ProductRow from '@/components/ProductRow.vue'
 import LangToggle from '@/components/LangToggle.vue'
 import ThemePanel from '@/components/ThemePanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import AddProductModal from '@/components/AddProductModal.vue'
 import { useTheme } from '@/composables/useTheme'
 
 const router = useRouter()
@@ -39,6 +42,22 @@ const activeStore = computed(() => STORES.find(s => s.id === activeStoreId.value
 const tabsEl = ref<HTMLElement>()
 const storeContentEl = ref<HTMLElement>()
 const countBadgeEl = ref<HTMLElement>()
+const fabEl = ref<HTMLButtonElement>()
+
+// ── FAB ───────────────────────────────────────────────────────────
+const isAddModalOpen = ref(false)
+
+function openAddModal() {
+  if (fabEl.value) {
+    animate(
+      fabEl.value,
+      { scale: [1, 0.88, 1.12, 1] },
+      { type: 'spring', stiffness: 400, damping: 20 } as AnimationOptions
+    )
+  }
+  isAddModalOpen.value = true
+  if ('vibrate' in navigator) navigator.vibrate(10)
+}
 
 // ── Tab switching ─────────────────────────────────────────────────
 let prevStoreIndex = STORES.findIndex(s => s.id === activeStoreId.value)
@@ -317,6 +336,18 @@ watch(shakeDetected, (v) => {
         </button>
       </div>
     </div>
+
+    <!-- FAB — floating add button -->
+    <button ref="fabEl" class="fab" @click="openAddModal" aria-label="Додати продукт">
+      <span class="fab-icon">＋</span>
+    </button>
+
+    <!-- Add product modal -->
+    <AddProductModal
+      v-if="isAddModalOpen"
+      :preselected-store-id="activeStoreId"
+      @close="isAddModalOpen = false"
+    />
 
     <!-- Confirm: clear all -->
     <ConfirmDialog
@@ -627,6 +658,44 @@ watch(shakeDetected, (v) => {
   font-weight: 500;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom) + 16px);
+  right: calc(50% - 240px + 16px);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  z-index: 50;
+  transition: transform 150ms ease, background 150ms ease;
+  will-change: transform;
+}
+
+.fab:active {
+  transform: scale(0.92);
+  background: var(--primary-dark);
+}
+
+.fab-icon {
+  font-size: 28px;
+  line-height: 1;
+  margin-top: -2px;
+}
+
+@media (max-width: 480px) {
+  .fab {
+    right: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

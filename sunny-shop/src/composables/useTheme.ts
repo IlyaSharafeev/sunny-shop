@@ -69,3 +69,14 @@ export function useTheme() {
 
   return { accentColor, colorScheme, setAccentColor, setColorScheme, PRESETS }
 }
+
+// Standalone setters — safe to call outside component context (stores, etc.)
+export function setAccentColorGlobal(color: string) {
+  accentColor.value = color
+  applyAccent(color)
+}
+export function setColorSchemeGlobal(scheme: 'light' | 'dark') {
+  colorScheme.value = scheme
+  applyScheme(scheme)
+}
+export { accentColor as themeAccentColor, colorScheme as themeColorScheme }

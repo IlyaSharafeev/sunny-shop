@@ -246,6 +246,12 @@ export const useProductsStore = defineStore('products', () => {
     }
   }
 
+  function resetToSeed() {
+    products.value = [...SEED_PRODUCTS]
+    updatedAtMap.value = {}
+    persist()
+  }
+
   const productsByStore = computed((): Map<StoreId, Product[]> => {
     const map = new Map<StoreId, Product[]>()
     for (const store of STORES) {
@@ -254,5 +260,5 @@ export const useProductsStore = defineStore('products', () => {
     return map
   })
 
-  return { products, addCustomProduct, deleteProduct, productsByStore, fetchFromServer, syncToServer }
+  return { products, addCustomProduct, deleteProduct, resetToSeed, productsByStore, fetchFromServer, syncToServer }
 })

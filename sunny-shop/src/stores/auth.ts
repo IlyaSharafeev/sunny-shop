@@ -109,6 +109,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    // Clear all store state before invalidating tokens
+    const { useProductsStore } = await import('./products')
+    const { useSessionStore } = await import('./session')
+    const { useHistoryStore } = await import('./history')
+    const { useSettingsStore } = await import('./settings')
+    useProductsStore().resetToSeed()
+    useSessionStore().clearCurrent()
+    useHistoryStore().clearHistory()
+    useSettingsStore().resetToDefaults()
+
     const rt = refreshToken.value
     user.value = null
     accessToken.value = null

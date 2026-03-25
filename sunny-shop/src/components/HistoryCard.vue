@@ -10,6 +10,7 @@ import type { ShoppingSession } from '@/stores/history'
 
 const props = defineProps<{
   session: ShoppingSession
+  initialExpanded?: boolean
 }>()
 
 const productsStore = useProductsStore()
@@ -19,7 +20,7 @@ const i18n = useI18nStore()
 const router = useRouter()
 
 const cardEl = ref<HTMLElement>()
-const expanded = ref(false)
+const expanded = ref(props.initialExpanded ?? false)
 const isSharing = ref(false)
 
 const formattedDate = computed(() => {
@@ -46,6 +47,25 @@ const itemsByStore = computed(() => {
   }
   return result
 })
+
+function getProductName(clientId: string): string {
+  return productsStore.products.find(p => p.id === clientId || p.id === clientId)?.name ?? clientId
+}
+
+function getProductUnit(clientId: string): string {
+  return productsStore.products.find(p => p.id === clientId)?.unit ?? ''
+}
+
+function itemsForStore(storeId: string) {
+  return props.session.items.filter(item => {
+    const product = productsStore.products.find(p => p.id === item.productId)
+    return product?.storeId === storeId
+  })
+}
+
+const storesWithItems = computed(() =>
+  STORES.filter(store => itemsForStore(store.id).length > 0)
+)
 
 function handleDelete() {
   if (confirm(i18n.t('history.deleteConfirm'))) {
@@ -111,10 +131,21 @@ async function handleShare() {
 
     <Transition name="expand">
       <div v-if="expanded" class="card-body">
-        <div v-for="group in itemsByStore" :key="group.store.id" class="store-group">
-          <div class="store-label" :style="{ color: group.store.color }">{{ group.store.name }}</div>
-          <div v-for="item in group.items" :key="item.name" class="item-line">
-            {{ item.name }} × {{ item.qty }} {{ i18n.t(`unit.${item.unit}`) }}
+        <div class="history-items">
+          <div v-for="store in storesWithItems" :key="store.id">
+            <div class="history-store-header" :style="{ borderLeftColor: store.color }">
+              {{ store.name }}
+            </div>
+            <div
+              v-for="item in itemsForStore(store.id)"
+              :key="item.productId"
+              class="history-item-row"
+            >
+              <div class="history-checkbox checked">✓</div>
+              <span class="history-item-name">{{ getProductName(item.productId) }}</span>
+              <span class="history-item-qty">{{ item.quantity }}</span>
+              <span class="history-item-unit">{{ getProductUnit(item.productId) }}</span>
+            </div>
           </div>
         </div>
 
@@ -207,26 +238,66 @@ async function handleShare() {
 }
 
 .card-body {
-  padding: 0 16px 14px;
+  padding: 0 0 14px;
   border-top: 1px solid var(--border);
 }
 
-.store-group {
-  margin-top: 12px;
+.history-items {
+  margin-bottom: 8px;
 }
 
-.store-label {
+.history-store-header {
+  padding: 6px 16px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 3px solid transparent;
+  background: var(--bg);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  letter-spacing: 0.05em;
 }
 
-.item-line {
+.history-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--primary);
+  background: var(--primary);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.history-item-name {
+  flex: 1;
   font-size: 14px;
   color: var(--text);
-  padding: 2px 0;
+}
+
+.history-item-qty {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  min-width: 20px;
+  text-align: right;
+}
+
+.history-item-unit {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 24px;
 }
 
 .card-actions {
@@ -234,6 +305,7 @@ async function handleShare() {
   gap: 8px;
   align-items: center;
   margin-top: 12px;
+  padding: 0 16px;
 }
 
 .repeat-btn {

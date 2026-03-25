@@ -5,7 +5,6 @@ import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
 import ProductRow from './ProductRow.vue'
-import AddProductForm from './AddProductForm.vue'
 
 const props = defineProps<{
   store: Store
@@ -69,8 +68,6 @@ function handleDelete(id: string) {
     <p v-if="sortedProducts.length > 0 && checkedInStore === 0" class="store-hint">
       {{ i18n.t('store.hint') }}
     </p>
-
-    <AddProductForm :storeId="store.id" />
   </section>
 </template>
 
