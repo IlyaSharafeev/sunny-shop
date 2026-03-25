@@ -56,7 +56,7 @@ function switchTab(t: 'login' | 'register') {
   error.value = ''
 }
 
-async function handleGoogleLogin(response: any) {
+async function handleGoogleCredential(response: any) {
   try {
     const data = await api.post<{ accessToken: string; refreshToken: string; user: any }>(
       '/api/auth/google',
@@ -69,6 +69,16 @@ async function handleGoogleLogin(response: any) {
     }
   } catch (e) {
     console.error('Google login error:', e)
+  }
+}
+
+function handleGoogleLogin() {
+  if (window.google?.accounts?.id) {
+    window.google.accounts.id.prompt((notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        console.log('One tap not available:', notification.getNotDisplayedReason?.())
+      }
+    })
   }
 }
 
@@ -86,12 +96,8 @@ onMounted(() => {
   script.onload = () => {
     window.google.accounts.id.initialize({
       client_id: clientId,
-      callback: handleGoogleLogin,
+      callback: handleGoogleCredential,
     })
-    window.google.accounts.id.renderButton(
-      document.getElementById('google-btn'),
-      { theme: 'outline', size: 'large', width: 280, text: 'signin_with', locale: 'uk' }
-    )
   }
   document.head.appendChild(script)
 })
@@ -176,8 +182,16 @@ function appleSignIn() {
       <!-- Divider -->
       <div class="divider"><span>або</span></div>
 
-      <!-- Google Sign-In (rendered by GSI script into this div) -->
-      <div id="google-btn" class="oauth-btn-wrap"></div>
+      <!-- Google Sign-In — manual button, always visible -->
+      <button class="google-btn-manual" type="button" @click="handleGoogleLogin">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.706c-.18-.54-.282-1.117-.282-1.706s.102-1.166.282-1.706V4.962H.957C.347 6.175 0 7.548 0 9s.348 2.825.957 4.038l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
+        </svg>
+        Увійти через Google
+      </button>
 
       <!-- Apple Sign-In -->
 <!--       <button -->
@@ -363,11 +377,25 @@ function appleSignIn() {
 }
 
 /* Google btn container — GSI renders a button inside */
-.oauth-btn-wrap {
+.google-btn-manual {
   width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid #dadce0;
+  border-radius: 8px;
+  background: white;
+  color: #3c4043;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
   display: flex;
+  align-items: center;
   justify-content: center;
-  min-height: 44px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+.google-btn-manual:active {
+  background: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 </style>
