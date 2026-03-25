@@ -88,37 +88,47 @@ function onOverlayClick(e: MouseEvent) {
           <button class="btn-submit" @click="submit">{{ i18n.t('home.addProductSubmit') }}</button>
           <button class="btn-cancel" @click="emit('close')">{{ i18n.t('home.addProductCancel') }}</button>
         </div>
+
+        <!-- safe-area spacer so buttons clear the home indicator on iOS -->
+        <div class="safe-area-spacer"></div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* ── Overlay ── */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   z-index: 100;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
 }
 
+/* ── Bottom sheet card ── */
 .modal-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
+  max-height: calc(100dvh - 120px);
   background: var(--card);
   border-radius: 20px 20px 0 0;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  animation: slideUp 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 240ms cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0.6; }
-  to   { transform: translateY(0);    opacity: 1; }
+  from { transform: translateX(-50%) translateY(100%); opacity: 0.7; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
 }
 
+/* ── Header — fixed inside the sheet ── */
 .modal-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -145,8 +155,12 @@ function onOverlayClick(e: MouseEvent) {
   cursor: pointer;
 }
 
+/* ── Scrollable body ── */
 .modal-body {
-  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -161,6 +175,7 @@ function onOverlayClick(e: MouseEvent) {
   background: var(--bg);
   width: 100%;
   font-size: 16px;
+  flex-shrink: 0;
 }
 
 .select {
@@ -172,6 +187,7 @@ function onOverlayClick(e: MouseEvent) {
   background: var(--bg);
   width: 100%;
   appearance: auto;
+  flex-shrink: 0;
 }
 
 .store-checkboxes { margin: 4px 0; }
@@ -220,7 +236,22 @@ function onOverlayClick(e: MouseEvent) {
 
 .store-label { font-size: 15px; color: var(--text); }
 
-.form-actions { display: flex; gap: 8px; margin-top: 4px; }
+/* ── Sticky action bar ── */
+.form-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 12px 0 0;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.safe-area-spacer {
+  height: calc(12px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
 
 .btn-submit {
   flex: 1;
