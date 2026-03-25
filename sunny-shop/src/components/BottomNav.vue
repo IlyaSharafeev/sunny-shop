@@ -33,7 +33,7 @@ const authStore = useAuthStore()
       @click="router.push('/login')"
     >
       <span class="nav-icon">{{ authStore.isLoggedIn ? '👤' : '🔑' }}</span>
-      <span class="nav-label">{{ authStore.isLoggedIn ? (authStore.user?.name?.split(' ')[0] ?? 'Акаунт') : 'Увійти' }}</span>
+      <span class="nav-label">{{ authStore.isLoggedIn ? (authStore.user?.name?.split(' ')[0] ?? 'Профіль') : 'Увійти' }}</span>
     </button>
   </nav>
 </template>
