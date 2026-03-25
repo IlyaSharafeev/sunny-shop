@@ -39,11 +39,10 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 )
-
-// Preflight
-app.options('/(.*)', cors())
 
 // Cross-Origin headers required for Google OAuth popup flow
 app.use((_req, res, next) => {
