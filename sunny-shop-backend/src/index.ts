@@ -43,7 +43,7 @@ app.use(
 )
 
 // Preflight
-app.options('*', cors())
+app.options('/(.*)', cors())
 
 // Cross-Origin headers required for Google OAuth popup flow
 app.use((_req, res, next) => {
