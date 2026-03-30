@@ -10,6 +10,7 @@ import productRoutes from './routes/products'
 import sessionRoutes from './routes/session'
 import historyRoutes from './routes/history'
 import settingsRoutes from './routes/settings'
+import pushRoutes from './routes/push'
 import { errorHandler } from './middleware/errorHandler'
 
 const app = express()
@@ -71,6 +72,7 @@ app.use('/api/products', apiLimiter, productRoutes)
 app.use('/api/session', apiLimiter, sessionRoutes)
 app.use('/api/history', apiLimiter, historyRoutes)
 app.use('/api/settings', apiLimiter, settingsRoutes)
+app.use('/api/push', apiLimiter, pushRoutes)
 
 // Global error handler
 app.use(errorHandler)

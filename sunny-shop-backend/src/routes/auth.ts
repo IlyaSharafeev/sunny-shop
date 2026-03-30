@@ -275,4 +275,21 @@ router.get('/me', requireAuth, async (req: Request, res: Response): Promise<void
   res.json({ user: toUserPublic(user) })
 })
 
+const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+})
+
+// PATCH /api/auth/profile
+router.patch('/profile', requireAuth, validate(updateProfileSchema), async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthRequest).userId!
+  const { name } = req.body as z.infer<typeof updateProfileSchema>
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { ...(name !== undefined && { name }) },
+  })
+
+  res.json({ user: toUserPublic(user) })
+})
+
 export default router

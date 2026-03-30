@@ -20,10 +20,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  products      Product[]
-  sessions      ShoppingSession[]
-  settings      UserSettings?
-  refreshTokens RefreshToken[]
+  products           Product[]
+  sessions           ShoppingSession[]
+  settings           UserSettings?
+  refreshTokens      RefreshToken[]
+  pushSubscriptions  PushSubscription[]
 }
 
 model RefreshToken {
@@ -91,4 +92,14 @@ model UserSettings {
   activeStore String  @default("zhanet")
 
   updatedAt   DateTime @updatedAt
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 }

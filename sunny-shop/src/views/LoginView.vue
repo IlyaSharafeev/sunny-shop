@@ -118,6 +118,12 @@ function handleGoogleLogin() {
 }
 
 onMounted(() => {
+  // Redirect logged-in users to profile
+  if (authStore.isLoggedIn) {
+    router.replace('/profile')
+    return
+  }
+
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   if (!clientId) {
     console.warn('VITE_GOOGLE_CLIENT_ID not set')

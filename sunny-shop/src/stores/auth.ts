@@ -108,6 +108,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(data: { name?: string }) {
+    loading.value = true
+    try {
+      const res = await api.patch<{ user: UserPublic }>('/api/auth/profile', data)
+      if (!res) throw new Error('Failed to update profile')
+      setUser(res.user)
+      return res
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function setPassword(password: string) {
     loading.value = true
     try {
@@ -161,5 +173,6 @@ export const useAuthStore = defineStore('auth', () => {
     loginWithApple,
     logout,
     setPassword,
+    updateProfile,
   }
 })
