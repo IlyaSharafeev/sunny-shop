@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { useI18nStore } from '@/stores/i18n'
-import { useAuthStore } from '@/stores/auth'
+import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const route = useRoute()
 const i18n = useI18nStore()
-const authStore = useAuthStore()
+const sessionStore = useSessionStore()
 </script>
 
 <template>
@@ -19,6 +19,19 @@ const authStore = useAuthStore()
       <span class="nav-icon">🛒</span>
       <span class="nav-label">{{ i18n.t('nav.list') }}</span>
     </button>
+
+    <button
+      class="nav-tab"
+      :class="{ active: route.path === '/shopping' }"
+      @click="router.push('/shopping')"
+    >
+      <span class="nav-icon">
+        🏪
+        <span v-if="sessionStore.checkedCount > 0" class="nav-badge">{{ sessionStore.checkedCount }}</span>
+      </span>
+      <span class="nav-label">Закуп</span>
+    </button>
+
     <button
       class="nav-tab"
       :class="{ active: route.path === '/history' }"
@@ -27,19 +40,10 @@ const authStore = useAuthStore()
       <span class="nav-icon">📋</span>
       <span class="nav-label">{{ i18n.t('nav.history') }}</span>
     </button>
-    <button
-      class="nav-tab"
-      :class="{ active: route.path === '/login' }"
-      @click="router.push('/login')"
-    >
-      <span class="nav-icon">{{ authStore.isLoggedIn ? '👤' : '🔑' }}</span>
-      <span class="nav-label">{{ authStore.isLoggedIn ? (authStore.user?.name?.split(' ')[0] ?? 'Профіль') : 'Увійти' }}</span>
-    </button>
   </nav>
 </template>
 
 <style scoped>
-/* Mobile: bottom nav */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -65,6 +69,7 @@ const authStore = useAuthStore()
   color: var(--muted);
   font-size: 11px;
   transition: color 150ms ease;
+  position: relative;
 }
 
 .nav-tab.active {
@@ -73,6 +78,28 @@ const authStore = useAuthStore()
 
 .nav-icon {
   font-size: 20px;
+  line-height: 1;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: var(--primary);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
   line-height: 1;
 }
 

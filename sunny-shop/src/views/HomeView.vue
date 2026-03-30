@@ -14,6 +14,7 @@ import { useStorage } from '@/composables/useStorage'
 import StoreSection from '@/components/StoreSection.vue'
 import ProductRow from '@/components/ProductRow.vue'
 import LangToggle from '@/components/LangToggle.vue'
+import ProfileAvatar from '@/components/ProfileAvatar.vue'
 import ThemePanel from '@/components/ThemePanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AddProductModal from '@/components/AddProductModal.vue'
@@ -228,6 +229,7 @@ watch(shakeDetected, (v) => {
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>
         <button class="icon-btn" @click="isThemeOpen = !isThemeOpen" :aria-label="i18n.t('theme.title')">🎨</button>
         <LangToggle />
+        <ProfileAvatar />
       </div>
       <ThemePanel :is-open="isThemeOpen" @close="isThemeOpen = false" />
     </header>

@@ -2,15 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHistoryStore } from '@/stores/history'
-import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 import HistoryCard from '@/components/HistoryCard.vue'
-import CurrentSessionCard from '@/components/CurrentSessionCard.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const router = useRouter()
 const historyStore = useHistoryStore()
-const sessionStore = useSessionStore()
 const i18n = useI18nStore()
 
 const showClearConfirm = ref(false)
@@ -44,8 +41,6 @@ function handleClearHistory() {
     </header>
 
     <main class="content">
-      <CurrentSessionCard />
-
       <template v-if="sessions.length === 0">
         <div class="empty-state">
           <svg class="empty-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
