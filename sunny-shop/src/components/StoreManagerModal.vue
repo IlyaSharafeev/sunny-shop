@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, type ComponentPublicInstance } from 'vue'
 import { useStoresStore, PRESET_COLORS, EMOJI_OPTIONS, type UserStore } from '@/stores/userStores'
 
 const emit = defineEmits<{ close: [] }>()
@@ -8,12 +8,12 @@ const storesStore = useStoresStore()
 // ── Inline rename ─────────────────────────────────────────────────
 const editingId = ref<string | null>(null)
 const editingName = ref('')
-let editInputEl: HTMLInputElement | null = null
+const editInputEl = ref<HTMLInputElement | null>(null)
 
 function startEdit(store: UserStore) {
   editingId.value = store.id
   editingName.value = store.name
-  nextTick(() => editInputEl?.focus())
+  nextTick(() => editInputEl.value?.focus())
 }
 
 function commitEdit() {
@@ -64,8 +64,8 @@ function onContainerPointerUp() {
   const toIdx = overIndex.value
   if (toIdx >= 0 && toIdx !== fromIdx) {
     const ids = sorted.value.map(s => s.id)
-    const [removed] = ids.splice(fromIdx, 1)
-    ids.splice(toIdx, 0, removed)
+    const removed = ids.splice(fromIdx, 1)[0]
+    if (removed !== undefined) ids.splice(toIdx, 0, removed)
     storesStore.reorder(ids)
   }
   dragId.value = null
@@ -154,7 +154,7 @@ function overlayClick(e: MouseEvent) {
           <div class="name-wrap" @click="startEdit(store)">
             <input
               v-if="editingId === store.id"
-              :ref="el => { if (el) editInputEl = el as HTMLInputElement }"
+              :ref="(el: Element | ComponentPublicInstance | null) => { editInputEl = el as HTMLInputElement | null }"
               v-model="editingName"
               class="name-input"
               @click.stop

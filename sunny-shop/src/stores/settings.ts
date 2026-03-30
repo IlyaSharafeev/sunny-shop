@@ -48,6 +48,8 @@ export const useSettingsStore = defineStore('settings', () => {
         colorScheme?: string
         sortMode?: string
         activeStore?: string
+        onboardingCompleted?: boolean
+        storesConfig?: string | null
       }>('/api/settings')
       if (!data) return
 
