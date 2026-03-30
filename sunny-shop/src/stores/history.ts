@@ -2,6 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useStorage } from '@/composables/useStorage'
 import { useApi } from '@/composables/useApi'
+import { useSyncStatus } from '@/composables/useSyncStatus'
+
+const { setSyncing, setSynced, setError } = useSyncStatus()
 
 export interface CheckedItem {
   productId: string
@@ -37,10 +40,12 @@ export const useHistoryStore = defineStore('history', () => {
       items: s.items.map(i => ({ productClientId: i.productId, quantity: i.quantity })),
     }))
 
+    setSyncing()
     try {
-      await api.post('/api/history/sync', { sessions: payload })
+      await api.post('/api/history/sync', { sessions: payload }, true)
+      setSynced()
     } catch {
-      // offline — ignore
+      setError()
     }
   }
 

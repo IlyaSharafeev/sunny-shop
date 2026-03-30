@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
@@ -7,15 +7,29 @@ import { useProductsStore } from '@/stores/products'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useTheme } from '@/composables/useTheme'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
+import { useToast } from '@/composables/useToast'
 import BottomNav from '@/components/BottomNav.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
+import ToastContainer from '@/components/ToastContainer.vue'
 
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
 const productsStore = useProductsStore()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
-useTheme() // load saved theme before first render
+useTheme()
+
+const { isOnline } = useOnlineStatus()
+const toast = useToast()
+
+watch(isOnline, (online, wasOnline) => {
+  if (!wasOnline && online) {
+    toast.success('Підключення відновлено')
+  } else if (wasOnline && !online) {
+    toast.warning('Немає інтернету — зміни збережені локально')
+  }
+})
 
 onMounted(async () => {
   // Try to restore auth session
@@ -50,16 +64,23 @@ onMounted(async () => {
     </RouterView>
     <BottomNav />
     <PwaInstallBanner />
+    <ToastContainer />
   </div>
 </template>
 
 <style scoped>
 .app-wrapper {
-  max-width: 480px;
+  max-width: 960px;
   margin: 0 auto;
   min-height: 100dvh;
   background: var(--bg);
   position: relative;
   overflow-x: hidden;
+}
+
+@media (min-width: 768px) {
+  .app-wrapper {
+    padding-top: 64px; /* space for top nav */
+  }
 }
 </style>

@@ -4,6 +4,9 @@ import { useDebounceFn } from '@vueuse/core'
 import { useStorage } from '@/composables/useStorage'
 import { useApi } from '@/composables/useApi'
 import { useHistoryStore, type CheckedItem, type ShoppingSession } from './history'
+import { useSyncStatus } from '@/composables/useSyncStatus'
+
+const { setSyncing, setSynced, setError } = useSyncStatus()
 
 export const useSessionStore = defineStore('session', () => {
   const storage = useStorage()
@@ -25,10 +28,12 @@ export const useSessionStore = defineStore('session', () => {
       quantity: i.quantity,
     }))
 
+    setSyncing()
     try {
-      await api.put('/api/session', { items })
+      await api.put('/api/session', { items }, true)
+      setSynced()
     } catch {
-      // offline — ignore
+      setError()
     }
   }, 2000)
 

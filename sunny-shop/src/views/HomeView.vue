@@ -18,6 +18,11 @@ import ThemePanel from '@/components/ThemePanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AddProductModal from '@/components/AddProductModal.vue'
 import { useTheme } from '@/composables/useTheme'
+import { useSyncStatus } from '@/composables/useSyncStatus'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
+
+const { status: syncStatus } = useSyncStatus()
+const { isOnline } = useOnlineStatus()
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -210,6 +215,16 @@ watch(shakeDetected, (v) => {
     <header class="top-header">
       <span class="app-title">{{ i18n.t('app.title') }}</span>
       <div class="header-actions">
+        <!-- Sync / online status indicator -->
+        <span
+          class="sync-dot"
+          :class="{
+            'sync-dot--syncing': syncStatus === 'syncing',
+            'sync-dot--synced':  syncStatus === 'synced',
+            'sync-dot--error':   syncStatus === 'error' || !isOnline,
+          }"
+          :title="!isOnline ? 'Офлайн' : syncStatus === 'syncing' ? 'Синхронізація...' : syncStatus === 'error' ? 'Помилка синхронізації' : ''"
+        />
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>
         <button class="icon-btn" @click="isThemeOpen = !isThemeOpen" :aria-label="i18n.t('theme.title')">🎨</button>
         <LangToggle />
@@ -381,7 +396,7 @@ watch(shakeDetected, (v) => {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
+  max-width: 960px;
   height: 60px;
   background: var(--card);
   border-bottom: 1px solid var(--border);
@@ -391,6 +406,12 @@ watch(shakeDetected, (v) => {
   padding: 0 12px;
   gap: 8px;
   z-index: 20;
+}
+
+@media (min-width: 768px) {
+  .top-header {
+    top: 64px; /* below top nav */
+  }
 }
 
 .app-title {
@@ -425,6 +446,30 @@ watch(shakeDetected, (v) => {
   background: var(--bg);
 }
 
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 300ms ease;
+}
+.sync-dot--syncing {
+  background: #fb8c00;
+  animation: pulse 1s infinite;
+}
+.sync-dot--synced {
+  background: #43a047;
+}
+.sync-dot--error {
+  background: #e53935;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* ── Search bar ── */
 .search-bar {
   display: flex;
@@ -438,6 +483,13 @@ watch(shakeDetected, (v) => {
   z-index: 15;
   margin-top: 60px;
   overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .search-bar {
+    top: 124px;
+    margin-top: 124px;
+  }
 }
 
 .search-input {
@@ -515,6 +567,13 @@ watch(shakeDetected, (v) => {
   gap: 0;
 }
 
+@media (min-width: 768px) {
+  .store-tabs {
+    top: 124px;
+    margin-top: 124px;
+  }
+}
+
 .store-tabs::-webkit-scrollbar {
   display: none;
 }
@@ -579,6 +638,12 @@ watch(shakeDetected, (v) => {
   padding: 0 0 calc(64px + 64px + env(safe-area-inset-bottom)) 0;
 }
 
+@media (min-width: 768px) {
+  .content {
+    padding: 0 0 80px 0;
+  }
+}
+
 .store-content {
   will-change: transform, opacity;
 }
@@ -590,7 +655,7 @@ watch(shakeDetected, (v) => {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
+  max-width: 960px;
   height: 64px;
   background: var(--card);
   border-top: 1px solid var(--border);
@@ -600,6 +665,12 @@ watch(shakeDetected, (v) => {
   padding: 0 16px;
   gap: 12px;
   z-index: 50;
+}
+
+@media (min-width: 768px) {
+  .bottom-bar {
+    bottom: 0;
+  }
 }
 
 .btn-clear {
@@ -664,7 +735,7 @@ watch(shakeDetected, (v) => {
 .fab {
   position: fixed;
   bottom: calc(72px + env(safe-area-inset-bottom) + 65px);
-  right: calc(50% - 240px + 16px);
+  right: calc(50% - 480px + 16px);
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -692,9 +763,15 @@ watch(shakeDetected, (v) => {
   margin-top: -2px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 960px) {
   .fab {
     right: 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .fab {
+    bottom: calc(64px + 16px);
   }
 }
 

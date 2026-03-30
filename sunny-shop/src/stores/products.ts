@@ -3,6 +3,9 @@ import { ref, computed } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useStorage } from '@/composables/useStorage'
 import { useApi } from '@/composables/useApi'
+import { useSyncStatus } from '@/composables/useSyncStatus'
+
+const { setSyncing, setSynced, setError } = useSyncStatus()
 
 export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'sklad' | 'any'
 export type Unit = 'кг' | 'л' | 'шт' | 'г' | 'пач' | 'бан' | '—'
@@ -174,12 +177,11 @@ export const useProductsStore = defineStore('products', () => {
       updatedAt: updatedAtMap.value[p.id] ?? new Date(0).toISOString(),
     }))
 
+    setSyncing()
     try {
-      const data = await api.post<{ products: any[] }>('/api/products/sync', { products: payload })
+      const data = await api.post<{ products: any[] }>('/api/products/sync', { products: payload }, true)
       if (data) {
-        // Merge server products back (server is source of truth for non-custom)
         const serverIds = new Set(data.products.map((p: any) => p.clientId))
-        // Add any server products not locally known
         for (const sp of data.products) {
           if (!products.value.find(p => p.id === sp.clientId)) {
             products.value.push({
@@ -192,12 +194,12 @@ export const useProductsStore = defineStore('products', () => {
             })
           }
         }
-        // Remove products that server deleted and aren't custom local
         products.value = products.value.filter(p => p.isCustom || serverIds.has(p.id))
         persist()
       }
+      setSynced()
     } catch {
-      // offline — ignore
+      setError()
     }
   }, 2000)
 

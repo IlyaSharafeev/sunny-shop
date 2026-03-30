@@ -1,6 +1,6 @@
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+import { useToast } from './useToast'
 
-let _logged = false
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
 
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = localStorage.getItem('refreshToken')
@@ -21,12 +21,13 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
-async function request<T = any>(method: string, path: string, body?: any): Promise<T | null> {
+async function request<T = any>(
+  method: string,
+  path: string,
+  body?: any,
+  silent = false,
+): Promise<T | null> {
   const token = localStorage.getItem('accessToken')
-  if (!_logged) {
-    console.log('[useApi] BASE_URL =', BASE_URL)
-    _logged = true
-  }
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
@@ -38,15 +39,27 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 
   if (res.status === 401) {
     const refreshed = await tryRefresh()
-    if (refreshed) return request<T>(method, path, body)
+    if (refreshed) return request<T>(method, path, body, silent)
+
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
+
+    // Redirect to login and notify
+    const toast = useToast()
+    toast.warning('Сесія закінчилась, увійдіть знову')
+    // Use dynamic import to avoid circular deps
+    import('@/router').then(({ default: router }) => router.push('/login'))
     return null
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
+    const message = err.error || `HTTP ${res.status}`
+    if (!silent) {
+      const toast = useToast()
+      toast.error(message)
+    }
+    throw new Error(message)
   }
 
   return res.json() as Promise<T>
@@ -54,10 +67,10 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 
 export function useApi() {
   return {
-    get: <T = any>(path: string) => request<T>('GET', path),
-    post: <T = any>(path: string, body: any) => request<T>('POST', path, body),
-    put: <T = any>(path: string, body: any) => request<T>('PUT', path, body),
-    patch: <T = any>(path: string, body: any) => request<T>('PATCH', path, body),
-    delete: <T = any>(path: string) => request<T>('DELETE', path),
+    get:    <T = any>(path: string, silent?: boolean)              => request<T>('GET',    path, undefined, silent),
+    post:   <T = any>(path: string, body: any, silent?: boolean)   => request<T>('POST',   path, body,      silent),
+    put:    <T = any>(path: string, body: any, silent?: boolean)   => request<T>('PUT',    path, body,      silent),
+    patch:  <T = any>(path: string, body: any, silent?: boolean)   => request<T>('PATCH',  path, body,      silent),
+    delete: <T = any>(path: string, silent?: boolean)              => request<T>('DELETE', path, undefined, silent),
   }
 }
