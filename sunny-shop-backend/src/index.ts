@@ -12,6 +12,7 @@ import historyRoutes from './routes/history'
 import settingsRoutes from './routes/settings'
 import pushRoutes from './routes/push'
 import statsRoutes from './routes/stats'
+import webhookRoutes from './routes/webhooks'
 import { errorHandler } from './middleware/errorHandler'
 
 const app = express()
@@ -75,6 +76,7 @@ app.use('/api/history', apiLimiter, historyRoutes)
 app.use('/api/settings', apiLimiter, settingsRoutes)
 app.use('/api/push', apiLimiter, pushRoutes)
 app.use('/api/stats', apiLimiter, statsRoutes)
+app.use('/api/webhooks', webhookRoutes)
 
 // Global error handler
 app.use(errorHandler)
