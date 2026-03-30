@@ -56,7 +56,7 @@ export async function syncProducts(userId: string, products: ProductInput[]) {
 export interface SessionInput {
   clientId: string
   date: string
-  items: { productClientId: string; quantity: number }[]
+  items: { productClientId: string; quantity: number; price?: number }[]
 }
 
 export async function syncHistory(userId: string, sessions: SessionInput[]) {
@@ -75,6 +75,7 @@ export async function syncHistory(userId: string, sessions: SessionInput[]) {
             create: s.items.map((item) => ({
               productClientId: item.productClientId,
               quantity: item.quantity,
+              price: item.price ?? 0,
             })),
           },
         },

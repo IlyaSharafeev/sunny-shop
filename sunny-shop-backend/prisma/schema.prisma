@@ -76,6 +76,7 @@ model SessionItem {
 
   productClientId String
   quantity        Int
+  price           Float           @default(0)
 }
 
 model UserSettings {

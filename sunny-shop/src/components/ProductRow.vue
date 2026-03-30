@@ -37,6 +37,12 @@ const lastTap = ref(0)
 
 const isChecked = computed(() => sessionStore.isChecked(props.product.id))
 const qty = computed(() => sessionStore.getQty(props.product.id))
+const price = computed(() => sessionStore.getPrice(props.product.id))
+
+function handlePriceInput(e: Event) {
+  const val = parseFloat((e.target as HTMLInputElement).value)
+  sessionStore.updatePrice(props.product.id, isNaN(val) ? 0 : val)
+}
 
 // Long press — differentiate checked vs unchecked
 onLongPress(rowEl, () => {
@@ -229,10 +235,25 @@ function cancelDelete() {
 
       <span class="product-name">{{ product.name }}</span>
 
-      <div v-if="isChecked && !product.isReminder" class="qty-stepper" @click.stop>
-        <button ref="minusBtn" @click="handleMinus">−</button>
-        <span ref="qtyEl" class="qty-num">{{ qty }}</span>
-        <button ref="plusBtn" @click="handlePlus">＋</button>
+      <div v-if="isChecked && !product.isReminder" class="qty-price-group" @click.stop>
+        <div class="qty-stepper">
+          <button ref="minusBtn" @click="handleMinus">−</button>
+          <span ref="qtyEl" class="qty-num">{{ qty }}</span>
+          <button ref="plusBtn" @click="handlePlus">＋</button>
+        </div>
+        <div class="price-input-wrap">
+          <span class="price-currency">₴</span>
+          <input
+            class="price-input"
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="0"
+            :value="price || ''"
+            @change="handlePriceInput"
+            @click.stop
+          />
+        </div>
       </div>
 
       <span class="unit">{{ product.isReminder ? '' : i18n.t(`unit.${product.unit}`) }}</span>
@@ -254,14 +275,14 @@ function cancelDelete() {
         <button v-if="showDelete" class="delete-btn" @click.stop="requestDelete">🗑</button>
       </Transition>
     </div>
-  </div>
 
-  <ConfirmDialog
-    :visible="showConfirm"
-    :message="i18n.t('home.deleteConfirm', { name: product.name })"
-    @confirm="confirmDelete"
-    @cancel="cancelDelete"
-  />
+    <ConfirmDialog
+      :visible="showConfirm"
+      :message="i18n.t('home.deleteConfirm', { name: product.name })"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
+  </div>
 </template>
 
 <style scoped>
@@ -377,10 +398,52 @@ function cancelDelete() {
   color: var(--text);
 }
 
+.qty-price-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .qty-stepper {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.price-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.price-currency {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.price-input {
+  width: 52px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  text-align: center;
+  padding: 0 4px;
+  outline: none;
+}
+
+.price-input:focus {
+  border-color: var(--primary);
+}
+
+.price-input::-webkit-inner-spin-button,
+.price-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
 }
 
 .qty-stepper button {

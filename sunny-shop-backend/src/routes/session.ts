@@ -11,6 +11,7 @@ const CURRENT_SESSION_CLIENT_ID = 'current'
 const checkedItemSchema = z.object({
   productClientId: z.string().min(1),
   quantity: z.number().int().positive(),
+  price: z.number().min(0).default(0),
 })
 
 const putSessionSchema = z.object({
@@ -29,6 +30,7 @@ router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> 
   const items = session?.items.map((item) => ({
     productClientId: item.productClientId,
     quantity: item.quantity,
+    price: item.price,
   })) ?? []
 
   res.json({ items })
@@ -60,6 +62,7 @@ router.put('/', requireAuth, validate(putSessionSchema), async (req: Request, re
         sessionId: session.id,
         productClientId: item.productClientId,
         quantity: item.quantity,
+        price: item.price ?? 0,
       })),
     })
   }

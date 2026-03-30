@@ -10,6 +10,7 @@ const router = Router()
 const sessionItemSchema = z.object({
   productClientId: z.string().min(1),
   quantity: z.number().int().positive(),
+  price: z.number().min(0).default(0),
 })
 
 const sessionInputSchema = z.object({

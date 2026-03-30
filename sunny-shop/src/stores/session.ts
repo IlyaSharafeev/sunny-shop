@@ -26,6 +26,7 @@ export const useSessionStore = defineStore('session', () => {
     const items = checkedItems.value.map(i => ({
       productClientId: i.productId,
       quantity: i.quantity,
+      price: i.price ?? 0,
     }))
 
     setSyncing()
@@ -39,12 +40,21 @@ export const useSessionStore = defineStore('session', () => {
 
   async function fetchFromServer() {
     try {
-      const data = await api.get<{ items: { productClientId: string; quantity: number }[] }>('/api/session')
+      const data = await api.get<{ items: { productClientId: string; quantity: number; price: number }[] }>('/api/session')
       if (!data) return
-      checkedItems.value = data.items.map(i => ({ productId: i.productClientId, quantity: i.quantity }))
+      checkedItems.value = data.items.map(i => ({ productId: i.productClientId, quantity: i.quantity, price: i.price ?? 0 }))
       persist()
     } catch {
       // offline — ignore
+    }
+  }
+
+  function updatePrice(productId: string, price: number) {
+    const item = checkedItems.value.find(i => i.productId === productId)
+    if (item) {
+      item.price = price >= 0 ? price : 0
+      persist()
+      syncToServer()
     }
   }
 
@@ -106,5 +116,13 @@ export const useSessionStore = defineStore('session', () => {
 
   const checkedCount = computed(() => checkedItems.value.length)
 
-  return { checkedItems, toggle, updateQty, finishSession, clearCurrent, loadFromSession, fetchFromServer, isChecked, getQty, checkedCount }
+  const totalCost = computed(() =>
+    checkedItems.value.reduce((sum, i) => sum + (i.price ?? 0) * i.quantity, 0)
+  )
+
+  const getPrice = computed(() => (productId: string): number =>
+    checkedItems.value.find(i => i.productId === productId)?.price ?? 0
+  )
+
+  return { checkedItems, toggle, updateQty, updatePrice, finishSession, clearCurrent, loadFromSession, fetchFromServer, isChecked, getQty, getPrice, checkedCount, totalCost }
 })

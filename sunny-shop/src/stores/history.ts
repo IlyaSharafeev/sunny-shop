@@ -9,6 +9,7 @@ const { setSyncing, setSynced, setError } = useSyncStatus()
 export interface CheckedItem {
   productId: string
   quantity: number
+  price?: number
 }
 
 export interface ShoppingSession {

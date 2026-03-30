@@ -327,9 +327,14 @@ watch(shakeDetected, (v) => {
         {{ i18n.t('home.clearAll') }}
       </button>
 
-      <span ref="countBadgeEl" class="count-pill" style="will-change: transform;">
-        {{ i18n.t('home.selected', { n: sessionStore.checkedCount }) }}
-      </span>
+      <div class="center-info">
+        <span ref="countBadgeEl" class="count-pill" style="will-change: transform;">
+          {{ i18n.t('home.selected', { n: sessionStore.checkedCount }) }}
+        </span>
+        <span v-if="sessionStore.totalCost > 0" class="total-cost">
+          ₴ {{ sessionStore.totalCost.toFixed(2) }}
+        </span>
+      </div>
 
       <div class="bottom-right-actions">
         <!-- Feature 2: repeat last when list is empty -->
@@ -685,6 +690,13 @@ watch(shakeDetected, (v) => {
   opacity: 0.4;
 }
 
+.center-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .count-pill {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -693,6 +705,13 @@ watch(shakeDetected, (v) => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
+}
+
+.total-cost {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
   white-space: nowrap;
 }
 
