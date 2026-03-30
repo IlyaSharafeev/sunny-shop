@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useProductsStore, STORES, type StoreId, type Unit } from '@/stores/products'
+import { useProductsStore, type StoreId, type Unit } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 
@@ -11,12 +12,15 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const sessionStore = useSessionStore()
 const i18n = useI18nStore()
 
 const name = ref('')
 const unit = ref<Unit>('шт')
-const selectedStores = ref<StoreId[]>([props.preselectedStoreId ?? 'zhanet'])
+const selectedStores = ref<StoreId[]>([
+  props.preselectedStoreId ?? storesStore.visibleStores[0]?.id ?? 'zhanet',
+])
 
 const UNITS: Unit[] = ['кг', 'л', 'шт', 'г', 'пач', 'бан']
 
@@ -70,7 +74,7 @@ function onOverlayClick(e: MouseEvent) {
 
         <div class="store-tags">
           <button
-            v-for="store in STORES"
+            v-for="store in storesStore.visibleStores"
             :key="store.id"
             class="store-tag"
             :class="{ active: selectedStores.includes(store.id) }"

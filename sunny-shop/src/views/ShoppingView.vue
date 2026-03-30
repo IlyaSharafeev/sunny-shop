@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSessionStore } from '@/stores/session'
-import { useProductsStore, STORES } from '@/stores/products'
+import { useProductsStore } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useAuthStore } from '@/stores/auth'
 import { buildShareUrl } from '@/composables/useShareList'
 import type { SharedList } from '@/composables/useShareList'
@@ -10,6 +11,7 @@ import ShareModal from '@/components/ShareModal.vue'
 
 const sessionStore = useSessionStore()
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const authStore = useAuthStore()
 
 const showShare = ref(false)
@@ -17,7 +19,7 @@ const showShare = ref(false)
 const shareUrl = computed(() => {
   const items = sessionStore.checkedItems.map(ci => {
     const product = productsStore.products.find(p => p.id === ci.productId)
-    const store = STORES.find(s => s.id === product?.storeId)
+    const store = storesStore.getById(product?.storeId ?? '')
     return {
       n: product?.name ?? ci.productId,
       q: ci.quantity,

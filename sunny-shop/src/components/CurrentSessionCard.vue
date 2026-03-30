@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
-import { useProductsStore, STORES } from '@/stores/products'
+import { useProductsStore } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useExchangeRates } from '@/composables/useExchangeRates'
 import { useI18nStore } from '@/stores/i18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const sessionStore = useSessionStore()
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const i18n = useI18nStore()
 const { rates, fetchRates } = useExchangeRates()
 
@@ -18,9 +20,7 @@ const showFinishConfirm = ref(false)
 const showCancelConfirm = ref(false)
 
 // Per-store collapse state: true = collapsed (all collapsed by default)
-const collapsedStores = ref<Record<string, boolean>>(
-  Object.fromEntries(STORES.map(s => [s.id, true]))
-)
+const collapsedStores = ref<Record<string, boolean>>({})
 
 function isStoreCollapsed(storeId: string) {
   return collapsedStores.value[storeId] ?? true
@@ -36,7 +36,7 @@ const totalEUR = computed(() => totalUAH.value * rates.value.EUR)
 const totalUSD = computed(() => totalUAH.value * rates.value.USD)
 
 const storeGroups = computed(() =>
-  STORES
+  storesStore.allSorted
     .map(store => ({
       store,
       products: productsStore.products.filter(p => p.storeId === store.id && !p.isReminder),

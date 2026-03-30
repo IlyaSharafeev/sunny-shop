@@ -2,7 +2,8 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import html2canvas from 'html2canvas'
-import { useProductsStore, STORES } from '@/stores/products'
+import { useProductsStore } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
@@ -14,6 +15,7 @@ const props = defineProps<{
 }>()
 
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
 const i18n = useI18nStore()
@@ -34,8 +36,8 @@ const formattedDate = computed(() => {
 })
 
 const itemsByStore = computed(() => {
-  const result: Array<{ store: typeof STORES[0], items: Array<{ name: string; qty: number; unit: string }> }> = []
-  for (const store of STORES) {
+  const result: Array<{ store: { id: string; name: string; color: string }, items: Array<{ name: string; qty: number; unit: string }> }> = []
+  for (const store of storesStore.allSorted) {
     const storeItems = props.session.items.flatMap(ci => {
       const product = productsStore.products.find(p => p.id === ci.productId)
       if (!product || product.storeId !== store.id) return []
@@ -64,7 +66,7 @@ function itemsForStore(storeId: string) {
 }
 
 const storesWithItems = computed(() =>
-  STORES.filter(store => itemsForStore(store.id).length > 0)
+  storesStore.allSorted.filter(store => itemsForStore(store.id).length > 0)
 )
 
 function handleDelete() {

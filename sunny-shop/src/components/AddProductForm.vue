@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useProductsStore, STORES, type StoreId, type Unit } from '@/stores/products'
+import { useProductsStore, type StoreId, type Unit } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 
@@ -9,6 +10,7 @@ const props = defineProps<{
 }>()
 
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const sessionStore = useSessionStore()
 const i18n = useI18nStore()
 
@@ -82,7 +84,7 @@ function cancel() {
         <div class="store-checkboxes">
           <p class="field-label">{{ i18n.t('addProduct.stores') }}</p>
           <div
-            v-for="store in STORES"
+            v-for="store in storesStore.visibleStores"
             :key="store.id"
             class="store-checkbox-row"
             @click="toggleStore(store.id)"

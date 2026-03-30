@@ -7,7 +7,8 @@ import { useSyncStatus } from '@/composables/useSyncStatus'
 
 const { setSyncing, setSynced, setError } = useSyncStatus()
 
-export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'sklad' | 'any'
+// StoreId is now string to support user-created custom stores
+export type StoreId = string
 export type Unit = 'кг' | 'л' | 'шт' | 'г' | 'пач' | 'бан' | '—'
 
 export interface Store {
@@ -26,6 +27,8 @@ export interface Product {
   isReminder?: boolean
 }
 
+// Static fallback used for seed products & backwards compatibility.
+// UI now reads from useStoresStore() instead.
 export const STORES: Store[] = [
   { id: 'zhanet',  name: 'Жанет',         color: '#e91e63', emoji: '🌸' },
   { id: 'lidl',    name: 'Лідл',          color: '#1565c0', emoji: '🔵' },
@@ -256,8 +259,10 @@ export const useProductsStore = defineStore('products', () => {
 
   const productsByStore = computed((): Map<StoreId, Product[]> => {
     const map = new Map<StoreId, Product[]>()
-    for (const store of STORES) {
-      map.set(store.id, products.value.filter(p => p.storeId === store.id))
+    // Collect all unique storeIds present in products (covers custom stores too)
+    const allIds = new Set([...STORES.map(s => s.id), ...products.value.map(p => p.storeId)])
+    for (const id of allIds) {
+      map.set(id, products.value.filter(p => p.storeId === id))
     }
     return map
   })

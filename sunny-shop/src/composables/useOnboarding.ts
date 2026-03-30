@@ -39,6 +39,15 @@ export async function startOnboarding() {
         },
       },
       {
+        element: '#onb-store-manage',
+        popover: {
+          title: '⚙ Мої магазини',
+          description: 'Тут можна додавати свої магазини, перейменовувати, змінювати порядок або ховати непотрібні вкладки.',
+          side: 'bottom',
+          align: 'start',
+        },
+      },
+      {
         element: '#onb-count-pill',
         popover: {
           title: '✓ Відмічені товари',

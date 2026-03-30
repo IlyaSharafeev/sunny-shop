@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { animate } from 'motion'
 import type { AnimationOptions } from 'motion'
-import { STORES, type StoreId, useProductsStore } from '@/stores/products'
+import { type StoreId, useProductsStore } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
@@ -18,6 +19,7 @@ import ProfileAvatar from '@/components/ProfileAvatar.vue'
 import ThemePanel from '@/components/ThemePanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AddProductModal from '@/components/AddProductModal.vue'
+import StoreManagerModal from '@/components/StoreManagerModal.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useOnlineStatus } from '@/composables/useOnlineStatus'
@@ -29,6 +31,7 @@ const router = useRouter()
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
 const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const i18n = useI18nStore()
 const storage = useStorage()
 const { bounceBadge, slideTabContent } = useSpringAnimate()
@@ -37,12 +40,30 @@ const { bounceBadge, slideTabContent } = useSpringAnimate()
 useTheme() // ensures theme is applied on mount
 const isThemeOpen = ref(false)
 
+// ── Store manager modal ───────────────────────────────────────────
+const isStoreManagerOpen = ref(false)
+
 // ── Active store tab ──────────────────────────────────────────────
 const activeStoreId = ref<StoreId>(
-  (storage.get<StoreId>('activeStore')) ?? 'zhanet'
+  storage.get<StoreId>('activeStore') ?? 'zhanet'
 )
 
-const activeStore = computed(() => STORES.find(s => s.id === activeStoreId.value)!)
+const activeStore = computed(
+  () => storesStore.visibleStores.find(s => s.id === activeStoreId.value)
+     ?? storesStore.visibleStores[0]
+     ?? { id: 'zhanet', name: 'Жанет', color: '#e91e63', emoji: '🌸' }
+)
+
+// If the active store gets hidden, switch to the first visible one
+watch(
+  () => storesStore.visibleStores,
+  (visible) => {
+    if (!visible.find(s => s.id === activeStoreId.value) && visible.length > 0) {
+      const first = visible[0]
+      if (first) switchTab(first.id)
+    }
+  }
+)
 
 // ── Refs ──────────────────────────────────────────────────────────
 const tabsEl = ref<HTMLElement>()
@@ -71,10 +92,11 @@ function openAddModal() {
 }
 
 // ── Tab switching ─────────────────────────────────────────────────
-let prevStoreIndex = STORES.findIndex(s => s.id === activeStoreId.value)
+let prevStoreIndex = storesStore.visibleStores.findIndex(s => s.id === activeStoreId.value)
 
 function switchTab(storeId: StoreId) {
-  const newIndex = STORES.findIndex(s => s.id === storeId)
+  const visible = storesStore.visibleStores
+  const newIndex = visible.findIndex(s => s.id === storeId)
   const direction = newIndex > prevStoreIndex ? 60 : -60
   prevStoreIndex = newIndex
 
@@ -257,7 +279,7 @@ watch(shakeDetected, (v) => {
     <!-- Sticky tab bar — hidden when search is open -->
     <div v-if="!isSearchOpen" ref="tabsEl" class="store-tabs">
       <button
-        v-for="store in STORES"
+        v-for="store in storesStore.visibleStores"
         :key="store.id"
         class="store-tab"
         :class="{ active: activeStoreId === store.id }"
@@ -266,6 +288,12 @@ watch(shakeDetected, (v) => {
       >
         {{ store.name }}
       </button>
+      <button
+        id="onb-store-manage"
+        class="store-tab manage-btn"
+        :title="'Управління магазинами'"
+        @click="isStoreManagerOpen = true"
+      >⚙</button>
     </div>
 
     <!-- Sort bar — hidden when search is open -->
@@ -300,7 +328,7 @@ watch(shakeDetected, (v) => {
         <div v-if="searchResults.length === 0" class="search-empty">
           {{ i18n.t('search.noResults') }}
         </div>
-        <template v-for="store in STORES" :key="store.id">
+        <template v-for="store in storesStore.allSorted" :key="store.id">
           <template v-if="searchResults.filter(p => p.storeId === store.id).length > 0">
             <div
               class="search-store-header"
@@ -381,6 +409,12 @@ watch(shakeDetected, (v) => {
       v-if="isAddModalOpen"
       :preselected-store-id="activeStoreId"
       @close="isAddModalOpen = false"
+    />
+
+    <!-- Store manager modal -->
+    <StoreManagerModal
+      v-if="isStoreManagerOpen"
+      @close="isStoreManagerOpen = false"
     />
 
     <!-- Confirm: clear all -->
@@ -616,6 +650,17 @@ watch(shakeDetected, (v) => {
 .store-tab.active {
   color: var(--tab-color);
   border-bottom-color: var(--tab-color);
+}
+
+.manage-btn {
+  color: var(--muted);
+  font-size: 16px;
+  flex-shrink: 0;
+  border-bottom-color: transparent !important;
+}
+
+.manage-btn:active {
+  background: var(--bg);
 }
 
 /* ── Sort bar ── */
