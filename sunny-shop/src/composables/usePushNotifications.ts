@@ -6,19 +6,20 @@ const api = useApi()
 const toast = useToast()
 
 const isSupported = typeof window !== 'undefined'
-  && 'Notification' in window
-  && 'serviceWorker' in navigator
-  && 'PushManager' in window
+    && 'Notification' in window
+    && 'serviceWorker' in navigator
+    && 'PushManager' in window
 
 const permission = ref<NotificationPermission>(
-  isSupported ? Notification.permission : 'denied'
+    isSupported ? Notification.permission : 'denied'
 )
 const isSubscribed = ref(false)
 const isLoading = ref(false)
 
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   try {
-    return (await navigator.serviceWorker.ready) ?? null
+    const registration = await navigator.serviceWorker.ready
+    return registration ?? null
   } catch {
     return null
   }
@@ -44,7 +45,6 @@ async function subscribe() {
   isLoading.value = true
 
   try {
-    // Request notification permission
     const perm = await Notification.requestPermission()
     permission.value = perm
     if (perm !== 'granted') {
@@ -52,7 +52,6 @@ async function subscribe() {
       return
     }
 
-    // Get VAPID key from env
     const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
     if (!vapidKey) throw new Error('VITE_VAPID_PUBLIC_KEY not set')
 

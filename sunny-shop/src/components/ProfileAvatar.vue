@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-
 const initials = computed(() => {
   const name = authStore.user?.name
   if (!name) return '?'
@@ -22,10 +21,10 @@ const isLoggedIn = computed(() => authStore.isLoggedIn)
 <template>
   <button class="profile-avatar" @click="router.push(authStore.isLoggedIn ? '/profile' : '/login')" :title="authStore.user?.name ?? 'Профіль'">
     <img
-      v-if="avatarUrl"
-      :src="avatarUrl"
-      :alt="authStore.user?.name ?? 'Avatar'"
-      class="avatar-img"
+        v-if="avatarUrl"
+        :src="avatarUrl"
+        :alt="authStore.user?.name ?? 'Avatar'"
+        class="avatar-img"
     />
     <span v-else-if="isLoggedIn" class="avatar-initials">{{ initials }}</span>
     <span v-else class="avatar-icon">👤</span>
