@@ -24,11 +24,48 @@ const api = useApi()
 const tab = ref<'login' | 'register'>('login')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const name = ref('')
-const error = ref('')
+const serverError = ref('')
+
+const errors = ref({
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+})
+
+function clearErrors() {
+  errors.value = { name: '', email: '', password: '', confirmPassword: '' }
+  serverError.value = ''
+}
+
+function validateEmail(value: string) {
+  if (!value) return 'Введіть email'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Невірний формат email'
+  return ''
+}
+
+function validatePassword(value: string, isRegister: boolean) {
+  if (!value) return 'Введіть пароль'
+  if (isRegister && value.length < 8) return 'Мінімум 8 символів'
+  return ''
+}
+
+function validate(): boolean {
+  const isRegister = tab.value === 'register'
+  errors.value.email = validateEmail(email.value)
+  errors.value.password = validatePassword(password.value, isRegister)
+  errors.value.confirmPassword =
+    isRegister && password.value !== confirmPassword.value ? 'Паролі не збігаються' : ''
+  errors.value.name = ''
+  return !Object.values(errors.value).some(Boolean)
+}
 
 async function onSubmit() {
-  error.value = ''
+  serverError.value = ''
+  if (!validate()) return
+
   try {
     if (tab.value === 'login') {
       await authStore.login(email.value, password.value)
@@ -42,7 +79,14 @@ async function onSubmit() {
     ])
     router.push('/')
   } catch (e: any) {
-    error.value = e.message || 'Помилка. Спробуйте ще раз.'
+    const msg: string = e.message || ''
+    if (msg.includes('Email already registered') || msg.includes('409')) {
+      errors.value.email = 'Цей email вже зареєстровано'
+    } else if (msg.includes('Invalid credentials') || msg.includes('401')) {
+      serverError.value = 'Невірний email або пароль'
+    } else {
+      serverError.value = msg || 'Помилка. Спробуйте ще раз.'
+    }
   }
 }
 
@@ -53,7 +97,11 @@ async function onLogout() {
 
 function switchTab(t: 'login' | 'register') {
   tab.value = t
-  error.value = ''
+  email.value = ''
+  password.value = ''
+  confirmPassword.value = ''
+  name.value = ''
+  clearErrors()
 }
 
 async function handleGoogleCredential(response: any) {
@@ -101,10 +149,6 @@ onMounted(() => {
   }
   document.head.appendChild(script)
 })
-
-function appleSignIn() {
-  window.AppleID?.auth.signIn()
-}
 </script>
 
 <template>
@@ -146,33 +190,56 @@ function appleSignIn() {
 
       <!-- Form -->
       <form class="login-form" @submit.prevent="onSubmit">
-        <input
-          v-if="tab === 'register'"
-          v-model="name"
-          type="text"
-          placeholder="Ім'я (необов'язково)"
-          class="login-input"
-          autocomplete="name"
-        />
-        <input
-          v-model="email"
-          type="email"
-          placeholder="Email"
-          class="login-input"
-          required
-          autocomplete="email"
-        />
-        <input
-          v-model="password"
-          type="password"
-          :placeholder="tab === 'register' ? 'Пароль (мін. 8 символів)' : 'Пароль'"
-          class="login-input"
-          required
-          :minlength="tab === 'register' ? 8 : undefined"
-          autocomplete="current-password"
-        />
+        <div v-if="tab === 'register'" class="field">
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Ім'я (необов'язково)"
+            class="login-input"
+            autocomplete="name"
+          />
+        </div>
 
-        <p v-if="error" class="login-error">{{ error }}</p>
+        <div class="field">
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            class="login-input"
+            :class="{ 'input-error': errors.email }"
+            autocomplete="email"
+            @input="errors.email = ''"
+          />
+          <p v-if="errors.email" class="field-error">{{ errors.email }}</p>
+        </div>
+
+        <div class="field">
+          <input
+            v-model="password"
+            type="password"
+            :placeholder="tab === 'register' ? 'Пароль (мін. 8 символів)' : 'Пароль'"
+            class="login-input"
+            :class="{ 'input-error': errors.password }"
+            autocomplete="current-password"
+            @input="errors.password = ''"
+          />
+          <p v-if="errors.password" class="field-error">{{ errors.password }}</p>
+        </div>
+
+        <div v-if="tab === 'register'" class="field">
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Повторіть пароль"
+            class="login-input"
+            :class="{ 'input-error': errors.confirmPassword }"
+            autocomplete="new-password"
+            @input="errors.confirmPassword = ''"
+          />
+          <p v-if="errors.confirmPassword" class="field-error">{{ errors.confirmPassword }}</p>
+        </div>
+
+        <p v-if="serverError" class="login-error">{{ serverError }}</p>
 
         <button type="submit" class="btn btn-primary" :disabled="authStore.loading">
           {{ authStore.loading ? '...' : tab === 'login' ? 'Увійти' : 'Зареєструватись' }}
@@ -182,7 +249,7 @@ function appleSignIn() {
       <!-- Divider -->
       <div class="divider"><span>або</span></div>
 
-      <!-- Google Sign-In — manual button, always visible -->
+      <!-- Google Sign-In -->
       <button class="google-btn-manual" type="button" @click="handleGoogleLogin">
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
           <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
@@ -192,18 +259,6 @@ function appleSignIn() {
         </svg>
         Увійти через Google
       </button>
-
-      <!-- Apple Sign-In -->
-<!--       <button -->
-<!--         class="btn btn-apple" -->
-<!--         type="button" -->
-<!--         @click="appleSignIn" -->
-<!--       > -->
-<!--         <svg class="apple-icon" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"> -->
-<!--           <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.34.07 2.27.74 3.04.8 1.15-.19 2.26-.89 3.46-.84 1.47.07 2.58.64 3.3 1.65-3.04 1.82-2.52 5.86.52 7.08-.6 1.66-1.38 3.3-2.32 4.19zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/> -->
-<!--         </svg> -->
-<!--         Увійти через Apple -->
-<!--       </button> -->
 
       <button class="btn-text" @click="router.push('/')">Продовжити без входу</button>
     </div>
@@ -283,8 +338,15 @@ function appleSignIn() {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   margin-top: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
 }
 
 .login-input {
@@ -297,15 +359,25 @@ function appleSignIn() {
   font-size: 16px;
   outline: none;
   transition: border-color 0.15s;
+  box-sizing: border-box;
 }
 
 .login-input:focus { border-color: var(--primary); }
+
+.login-input.input-error { border-color: var(--danger); }
+
+.field-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 0;
+  padding-left: 2px;
+}
 
 .login-error {
   font-size: 13px;
   color: var(--danger);
   text-align: center;
-  margin-top: -4px;
+  margin: 0;
 }
 
 /* Buttons */
@@ -323,31 +395,11 @@ function appleSignIn() {
   gap: 8px;
 }
 
-.btn:disabled { opacity: 0.6; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-primary { background: var(--primary); color: #fff; margin-top: 4px; }
 
 .btn-danger { background: var(--danger); color: #fff; }
-
-.btn-apple {
-  width: 100%;
-  padding: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: var(--radius);
-  cursor: pointer;
-  background: #000;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity 0.15s;
-}
-
-[data-theme="dark"] .btn-apple { background: #fff; color: #000; }
-
-.apple-icon { flex-shrink: 0; }
 
 .btn-text {
   font-size: 13px;
@@ -376,7 +428,6 @@ function appleSignIn() {
   background: var(--border);
 }
 
-/* Google btn container — GSI renders a button inside */
 .google-btn-manual {
   width: 100%;
   padding: 12px 16px;
