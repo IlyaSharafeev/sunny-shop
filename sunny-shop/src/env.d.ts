@@ -1,0 +1,22 @@
+/// <reference types="vite/client" />
+
+declare module 'canvas-confetti' {
+  interface Options {
+    particleCount?: number
+    spread?: number
+    origin?: { x?: number; y?: number }
+    colors?: string[]
+    startVelocity?: number
+    decay?: number
+    gravity?: number
+    drift?: number
+    ticks?: number
+    angle?: number
+    scalar?: number
+    shapes?: string[]
+    zIndex?: number
+    disableForReducedMotion?: boolean
+  }
+  function confetti(options?: Options): Promise<null>
+  export = confetti
+}

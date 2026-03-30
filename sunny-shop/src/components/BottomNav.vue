@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { useI18nStore } from '@/stores/i18n'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const i18n = useI18nStore()
+const authStore = useAuthStore()
 </script>
 
 <template>
@@ -24,6 +26,14 @@ const i18n = useI18nStore()
     >
       <span class="nav-icon">📋</span>
       <span class="nav-label">{{ i18n.t('nav.history') }}</span>
+    </button>
+    <button
+      class="nav-tab"
+      :class="{ active: route.path === '/login' }"
+      @click="router.push('/login')"
+    >
+      <span class="nav-icon">{{ authStore.isLoggedIn ? '👤' : '🔑' }}</span>
+      <span class="nav-label">{{ authStore.isLoggedIn ? (authStore.user?.name?.split(' ')[0] ?? 'Профіль') : 'Увійти' }}</span>
     </button>
   </nav>
 </template>

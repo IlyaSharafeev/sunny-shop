@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
@@ -11,8 +11,18 @@ const historyStore = useHistoryStore()
 const i18n = useI18nStore()
 
 const showClearConfirm = ref(false)
+const expandedId = ref<string | null>(null)
 
 const sessions = computed(() => historyStore.sessions)
+
+onMounted(() => {
+  if (historyStore.sessions.length > 0) {
+    const last = [...historyStore.sessions].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )[0]
+    if (last) expandedId.value = last.id
+  }
+})
 
 function handleClearHistory() {
   showClearConfirm.value = false
@@ -47,6 +57,7 @@ function handleClearHistory() {
           v-for="session in sessions"
           :key="session.id"
           :session="session"
+          :initial-expanded="expandedId === session.id"
         />
       </template>
     </main>

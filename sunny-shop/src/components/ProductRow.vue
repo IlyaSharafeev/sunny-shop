@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSwipe, onLongPress, useVibrate } from '@vueuse/core'
-import { animate, spring } from 'motion'
+import { animate } from 'motion'
 import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 import { useSpringAnimate } from '@/composables/useSpringAnimate'
@@ -28,31 +28,60 @@ const qtyEl = ref<HTMLElement>()
 const minusBtn = ref<HTMLButtonElement>()
 const plusBtn = ref<HTMLButtonElement>()
 
-const showDelete = ref(false)
+const showDelete = ref(false)          // product delete (unchecked rows)
+const showSessionDelete = ref(false)   // session remove (checked rows)
+const sessionDeleteConfirming = ref(false)
 const showConfirm = ref(false)
 const offsetX = ref(0)
+const lastTap = ref(0)
 
 const isChecked = computed(() => sessionStore.isChecked(props.product.id))
 const qty = computed(() => sessionStore.getQty(props.product.id))
 
-// Long press — stop propagation from checkbox button area via @pointerdown.stop
+// Long press — differentiate checked vs unchecked
 onLongPress(rowEl, () => {
-  showDelete.value = true
+  if (isChecked.value) {
+    showSessionDelete.value = true
+  } else {
+    showDelete.value = true
+  }
   vibrate([50])
 }, { delay: 500 })
 
+// Scroll detection
+let isScrolling: boolean | null = null
+let startX = 0
+let startY = 0
+
+onMounted(() => {
+  contentEl.value?.addEventListener('touchstart', (e) => {
+    startX = e.touches[0]?.clientX ?? 0
+    startY = e.touches[0]?.clientY ?? 0
+    isScrolling = null
+  }, { passive: true })
+
+  contentEl.value?.addEventListener('touchmove', (e) => {
+    if (isScrolling === null) {
+      const dx = Math.abs((e.touches[0]?.clientX ?? 0) - startX)
+      const dy = Math.abs((e.touches[0]?.clientY ?? 0) - startY)
+      isScrolling = dy > dx
+    }
+  }, { passive: true })
+})
+
 // Swipe gesture for qty control
-const { isSwiping, lengthX } = useSwipe(rowEl, {
-  threshold: 10,
+// lengthX = start.x - end.x, so right swipe → negative lengthX
+// We negate: offsetX > 0 = swiping right (→ +1), offsetX < 0 = swiping left (→ -1/delete)
+const { isSwiping, lengthX, direction } = useSwipe(rowEl, {
+  threshold: 40,
   onSwipe() {
     if (!isChecked.value || props.product.isReminder) return
-    offsetX.value = Math.min(Math.max(lengthX.value, -80), 80)
+    offsetX.value = Math.min(Math.max(-lengthX.value, -80), 80)
   },
   onSwipeEnd() {
-    const dist = lengthX.value
-    if (isChecked.value && !props.product.isReminder) {
-      if (dist > 40) handleSwipeRight()
-      else if (dist < -40) handleSwipeLeft()
+    if (isChecked.value && !props.product.isReminder && isScrolling !== true) {
+      if (direction.value === 'right') handleSwipeRight()
+      else if (direction.value === 'left') handleSwipeLeft()
     }
     offsetX.value = 0
   },
@@ -64,10 +93,37 @@ const swipeBgRightOpacity = computed(() => Math.max(0, -offsetX.value) / 80)
 
 function handleCheck() {
   const wasChecked = isChecked.value
+  showDelete.value = false
+  showSessionDelete.value = false
+  sessionDeleteConfirming.value = false
   sessionStore.toggle(props.product.id)
   vibrate(wasChecked ? [5] : [10])
-  showDelete.value = false
   if (checkboxEl.value) bounceCheck(checkboxEl.value)
+}
+
+const doubleTapEase: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
+
+function handleRowClick() {
+  const now = Date.now()
+  const timeSinceLastTap = now - lastTap.value
+
+  if (timeSinceLastTap < 300 && isChecked.value && !props.product.isReminder) {
+    // Double-tap: double the quantity
+    const currentQty = sessionStore.getQty(props.product.id)
+    sessionStore.updateQty(props.product.id, currentQty * 2)
+    if (qtyEl.value) {
+      animate(qtyEl.value,
+        { scaleX: [1, 1.6, 0.9, 1.15, 1], scaleY: [1, 1.6, 0.9, 1.15, 1] },
+        { ease: doubleTapEase, duration: 0.5 }
+      )
+    }
+    if ('vibrate' in navigator) navigator.vibrate([15, 30, 15])
+    lastTap.value = 0
+    return
+  }
+
+  lastTap.value = now
+  handleCheck()
 }
 
 function handleMinus() {
@@ -91,11 +147,32 @@ function handleSwipeRight() {
 }
 
 function handleSwipeLeft() {
-  vibrate([8])
-  sessionStore.updateQty(props.product.id, qty.value - 1)
-  if (qtyEl.value && qty.value > 1) bounceQty(qtyEl.value)
+  const currentQty = sessionStore.getQty(props.product.id)
+  if (currentQty > 1) {
+    vibrate([8])
+    sessionStore.updateQty(props.product.id, currentQty - 1)
+    if (qtyEl.value) bounceQty(qtyEl.value)
+  } else {
+    // qty is 1 — swipe left removes item from session
+    sessionStore.toggle(props.product.id)
+    if ('vibrate' in navigator) navigator.vibrate([15, 40, 15])
+  }
 }
 
+// Session delete (for checked rows)
+function handleSessionDeleteClick() {
+  if (!sessionDeleteConfirming.value) {
+    sessionDeleteConfirming.value = true
+    setTimeout(() => { sessionDeleteConfirming.value = false }, 2000)
+  } else {
+    showSessionDelete.value = false
+    sessionDeleteConfirming.value = false
+    sessionStore.toggle(props.product.id)
+    if ('vibrate' in navigator) navigator.vibrate([20, 50, 20])
+  }
+}
+
+// Product delete (for unchecked rows)
 function requestDelete() {
   showConfirm.value = true
 }
@@ -121,26 +198,28 @@ function cancelDelete() {
     ref="rowEl"
     class="product-row"
     :class="{ checked: isChecked }"
-    @click.self="showDelete = false"
+    @click.self="showDelete = false; showSessionDelete = false; sessionDeleteConfirming = false"
   >
     <!-- Swipe background indicators -->
+    <!-- Left side (green): reveals when swiping right → +1 -->
     <div class="swipe-bg-left" :style="{ opacity: swipeBgLeftOpacity }">＋1</div>
+    <!-- Right side (red): reveals when swiping left → -1 or 🗑 -->
     <div class="swipe-bg-right" :style="{ opacity: swipeBgRightOpacity }">
       {{ qty === 1 ? '🗑' : '−1' }}
     </div>
 
-    <!-- Row content -->
+    <!-- Row content — handles both single tap (toggle) and double-tap (×2 qty) -->
     <div
       ref="contentEl"
       class="row-content"
       :class="{ swiping: isSwiping }"
       :style="{ transform: `translateX(${offsetX}px)` }"
+      @click="handleRowClick"
     >
-      <!-- Checkbox — stop pointerdown so long-press won't fire from this area -->
+      <!-- @pointerdown.stop prevents long-press from firing when touching checkbox -->
       <button
         class="checkbox-btn"
         @pointerdown.stop
-        @click.stop="handleCheck"
         :aria-label="product.name"
       >
         <div ref="checkboxEl" class="checkbox" :class="{ active: isChecked }">
@@ -150,14 +229,27 @@ function cancelDelete() {
 
       <span class="product-name">{{ product.name }}</span>
 
-      <div v-if="isChecked && !product.isReminder" class="qty-stepper">
-        <button ref="minusBtn" @click.stop="handleMinus">−</button>
+      <div v-if="isChecked && !product.isReminder" class="qty-stepper" @click.stop>
+        <button ref="minusBtn" @click="handleMinus">−</button>
         <span ref="qtyEl" class="qty-num">{{ qty }}</span>
-        <button ref="plusBtn" @click.stop="handlePlus">＋</button>
+        <button ref="plusBtn" @click="handlePlus">＋</button>
       </div>
 
       <span class="unit">{{ product.isReminder ? '' : i18n.t(`unit.${product.unit}`) }}</span>
 
+      <!-- Session remove button (for checked rows, long press) -->
+      <Transition name="fade-delete">
+        <button
+          v-if="showSessionDelete"
+          class="delete-btn"
+          :class="{ confirming: sessionDeleteConfirming }"
+          @click.stop="handleSessionDeleteClick"
+        >
+          {{ sessionDeleteConfirming ? '✓ Видалити?' : '🗑' }}
+        </button>
+      </Transition>
+
+      <!-- Product delete button (for unchecked rows, long press) -->
       <Transition name="fade-delete">
         <button v-if="showDelete" class="delete-btn" @click.stop="requestDelete">🗑</button>
       </Transition>
@@ -272,12 +364,17 @@ function cancelDelete() {
   transition: color 200ms ease;
 }
 
+.product-row.checked {
+  opacity: 0.55;
+}
+
 .product-row.checked .product-name {
-  color: var(--text);
+  text-decoration: line-through;
+  color: var(--muted);
 }
 
 .product-row:not(.checked) .product-name {
-  color: var(--muted);
+  color: var(--text);
 }
 
 .qty-stepper {
@@ -330,6 +427,14 @@ function cancelDelete() {
   justify-content: center;
   flex-shrink: 0;
   margin-left: 4px;
+}
+
+.delete-btn.confirming {
+  width: auto;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .fade-delete-enter-active,

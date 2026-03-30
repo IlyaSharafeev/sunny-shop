@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useStorage } from '@/composables/useStorage'
+import { useApi } from '@/composables/useApi'
 
 export interface CheckedItem {
   productId: string
@@ -17,11 +18,53 @@ const MAX_SESSIONS = 30
 
 export const useHistoryStore = defineStore('history', () => {
   const storage = useStorage()
+  const api = useApi()
 
   const sessions = ref<ShoppingSession[]>(storage.get<ShoppingSession[]>('history') ?? [])
 
   function persist() {
     storage.set('history', sessions.value)
+  }
+
+  async function syncToServer() {
+    const { useAuthStore } = await import('./auth')
+    const authStore = useAuthStore()
+    if (!authStore.isLoggedIn) return
+
+    const payload = sessions.value.map(s => ({
+      clientId: s.id,
+      date: s.date,
+      items: s.items.map(i => ({ productClientId: i.productId, quantity: i.quantity })),
+    }))
+
+    try {
+      await api.post('/api/history/sync', { sessions: payload })
+    } catch {
+      // offline — ignore
+    }
+  }
+
+  async function fetchFromServer() {
+    try {
+      const data = await api.get<{ sessions: any[] }>('/api/history')
+      if (!data) return
+
+      const localIds = new Set(sessions.value.map(s => s.id))
+      for (const ss of data.sessions) {
+        if (!localIds.has(ss.clientId)) {
+          sessions.value.push({
+            id: ss.clientId,
+            date: ss.date,
+            items: (ss.items ?? []).map((i: any) => ({ productId: i.productClientId, quantity: i.quantity })),
+          })
+        }
+      }
+      sessions.value.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      if (sessions.value.length > MAX_SESSIONS) sessions.value = sessions.value.slice(0, MAX_SESSIONS)
+      persist()
+    } catch {
+      // offline — ignore
+    }
   }
 
   function addSession(session: ShoppingSession) {
@@ -30,11 +73,19 @@ export const useHistoryStore = defineStore('history', () => {
       sessions.value = sessions.value.slice(0, MAX_SESSIONS)
     }
     persist()
+    syncToServer()
+  }
+
+  function deleteSession(id: string) {
+    sessions.value = sessions.value.filter(s => s.id !== id)
+    persist()
+    api.delete(`/api/history/${encodeURIComponent(id)}`).catch(() => {})
   }
 
   function clearHistory() {
     sessions.value = []
     persist()
+    api.delete('/api/history').catch(() => {})
   }
 
   const getFrequentProductIds = computed(() => (topN = 12): string[] => {
@@ -51,5 +102,9 @@ export const useHistoryStore = defineStore('history', () => {
       .map(([id]) => id)
   })
 
-  return { sessions, addSession, clearHistory, getFrequentProductIds }
+  const lastSession = computed((): ShoppingSession | null =>
+    sessions.value.length > 0 ? (sessions.value[0] ?? null) : null
+  )
+
+  return { sessions, addSession, deleteSession, clearHistory, fetchFromServer, getFrequentProductIds, lastSession }
 })

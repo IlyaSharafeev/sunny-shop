@@ -8,7 +8,18 @@
       "Bash(node -e \"const m = require\\(''''motion''''\\); console.log\\(Object.keys\\(m\\)\\)\")",
       "Bash(node -e \"const m = require\\(''motion''\\); console.log\\(typeof m.spring, typeof m.animate\\)\")",
       "Bash(node -e \":*)",
-      "Bash(grep -r ObjectTarget node_modules/motion/dist --include=*.d.ts -l)"
+      "Bash(grep -r ObjectTarget node_modules/motion/dist --include=*.d.ts -l)",
+      "Bash(node:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(wc -l /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop/src/stores/*.ts)",
+      "Bash(ls /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop/.env*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(ls /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop-backend/.env*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(grep -E '\"\"motion\"\"|\"\"@motionone\"\"' package.json)"
     ]
   }
 }

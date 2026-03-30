@@ -1,14 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { useStorage } from '@/composables/useStorage'
+import { useApi } from '@/composables/useApi'
 
-export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'any'
+export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'sklad' | 'any'
 export type Unit = 'кг' | 'л' | 'шт' | 'г' | 'пач' | 'бан' | '—'
 
 export interface Store {
   id: StoreId
   name: string
   color: string
+  emoji?: string
 }
 
 export interface Product {
@@ -21,10 +24,11 @@ export interface Product {
 }
 
 export const STORES: Store[] = [
-  { id: 'zhanet',  name: 'Жанет',     color: '#e91e63' },
-  { id: 'lidl',    name: 'Лідл',      color: '#1565c0' },
-  { id: 'mladost', name: 'Младост',   color: '#2e7d32' },
-  { id: 'any',     name: 'Будь-який', color: '#757575' },
+  { id: 'zhanet',  name: 'Жанет',         color: '#e91e63', emoji: '🌸' },
+  { id: 'lidl',    name: 'Лідл',          color: '#1565c0', emoji: '🔵' },
+  { id: 'mladost', name: 'Младост',       color: '#2e7d32', emoji: '🌿' },
+  { id: 'sklad',   name: 'Склад Младост', color: '#6d4c41', emoji: '📦' },
+  { id: 'any',     name: 'Будь-який',     color: '#757575', emoji: '🏪' },
 ]
 
 const SEED_PRODUCTS: Product[] = [
@@ -95,21 +99,141 @@ const SEED_PRODUCTS: Product[] = [
   { id: 'an-11', name: 'Шоколад',              storeId: 'any', unit: 'шт',  isCustom: false },
   { id: 'an-12', name: 'Сухарики',             storeId: 'any', unit: 'пач', isCustom: false },
   { id: 'an-13', name: 'Печиво',               storeId: 'any', unit: 'пач', isCustom: false },
+  // Жанет — додаткові
+  { id: 'zh-26', name: 'Сметана',              storeId: 'zhanet', unit: 'л',   isCustom: false },
+  { id: 'zh-27', name: 'Кефір',                storeId: 'zhanet', unit: 'л',   isCustom: false },
+  { id: 'zh-28', name: 'Масло вершкове',       storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  { id: 'zh-29', name: 'Оселедець',            storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  { id: 'zh-30', name: 'Часник',               storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  // Лідл — додаткові
+  { id: 'li-18', name: 'Кетчуп',               storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-19', name: 'Гірчиця',              storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-20', name: 'Оцет',                 storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-21', name: 'Консерви (боби)',       storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-22', name: 'Вівсянка',             storeId: 'lidl', unit: 'пач', isCustom: false },
+  // Младост — додаткові
+  { id: 'ml-09', name: 'Виноград',             storeId: 'mladost', unit: 'кг',  isCustom: false },
+  { id: 'ml-10', name: 'Лимон',                storeId: 'mladost', unit: 'шт',  isCustom: false },
+  { id: 'ml-11', name: 'Груші',                storeId: 'mladost', unit: 'кг',  isCustom: false },
+  // Будь-який — додаткові
+  { id: 'an-14', name: 'Туалетний папір',      storeId: 'any', unit: 'пач', isCustom: false },
+  { id: 'an-15', name: 'Мило',                 storeId: 'any', unit: 'шт',  isCustom: false },
+  { id: 'an-16', name: 'Шампунь',              storeId: 'any', unit: 'шт',  isCustom: false },
+  { id: 'an-17', name: 'Зубна паста',          storeId: 'any', unit: 'шт',  isCustom: false },
 ]
 
 export const useProductsStore = defineStore('products', () => {
   const storage = useStorage()
+  const api = useApi()
 
-  const products = ref<Product[]>(storage.get<Product[]>('products') ?? [...SEED_PRODUCTS])
+  function getInitialProducts(): Product[] {
+    const stored = storage.get<Product[]>('products')
+    if (stored) {
+      const existingIds = new Set(stored.map(p => p.id))
+      const newSeed = SEED_PRODUCTS.filter(p => !existingIds.has(p.id))
+      if (newSeed.length > 0) {
+        const merged = [...stored, ...newSeed]
+        storage.set('products', merged)
+        return merged
+      }
+      return stored
+    }
+    return [...SEED_PRODUCTS]
+  }
+
+  const products = ref<Product[]>(getInitialProducts())
+
+  // Track updatedAt per product for server-side conflict resolution
+  const updatedAtMap = ref<Record<string, string>>(
+    storage.get<Record<string, string>>('products_updatedAt') ?? {}
+  )
 
   function persist() {
     storage.set('products', products.value)
+    storage.set('products_updatedAt', updatedAtMap.value)
+  }
+
+  function touchProduct(id: string) {
+    updatedAtMap.value[id] = new Date().toISOString()
+  }
+
+  // Sync to server (debounced 2s)
+  const syncToServer = useDebounceFn(async () => {
+    const { useAuthStore } = await import('./auth')
+    const authStore = useAuthStore()
+    if (!authStore.isLoggedIn) return
+
+    const payload = products.value.map(p => ({
+      clientId: p.id,
+      name: p.name,
+      storeId: p.storeId,
+      unit: p.unit,
+      isCustom: p.isCustom,
+      isReminder: p.isReminder ?? false,
+      isDeleted: false,
+      updatedAt: updatedAtMap.value[p.id] ?? new Date(0).toISOString(),
+    }))
+
+    try {
+      const data = await api.post<{ products: any[] }>('/api/products/sync', { products: payload })
+      if (data) {
+        // Merge server products back (server is source of truth for non-custom)
+        const serverIds = new Set(data.products.map((p: any) => p.clientId))
+        // Add any server products not locally known
+        for (const sp of data.products) {
+          if (!products.value.find(p => p.id === sp.clientId)) {
+            products.value.push({
+              id: sp.clientId,
+              name: sp.name,
+              storeId: sp.storeId as StoreId,
+              unit: sp.unit as Unit,
+              isCustom: sp.isCustom,
+              isReminder: sp.isReminder,
+            })
+          }
+        }
+        // Remove products that server deleted and aren't custom local
+        products.value = products.value.filter(p => p.isCustom || serverIds.has(p.id))
+        persist()
+      }
+    } catch {
+      // offline — ignore
+    }
+  }, 2000)
+
+  // Fetch from server on login and merge
+  async function fetchFromServer() {
+    try {
+      const data = await api.get<{ products: any[] }>('/api/products')
+      if (!data) return
+
+      const now = new Date().toISOString()
+      for (const sp of data.products) {
+        const local = products.value.find(p => p.id === sp.clientId)
+        if (!local) {
+          products.value.push({
+            id: sp.clientId,
+            name: sp.name,
+            storeId: sp.storeId as StoreId,
+            unit: sp.unit as Unit,
+            isCustom: sp.isCustom,
+            isReminder: sp.isReminder,
+          })
+          updatedAtMap.value[sp.clientId] = now
+        }
+      }
+      persist()
+    } catch {
+      // offline — ignore
+    }
   }
 
   function addCustomProduct(name: string, storeId: StoreId, unit: Unit) {
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     products.value.push({ id, name, storeId, unit, isCustom: true })
+    touchProduct(id)
     persist()
+    syncToServer()
   }
 
   function deleteProduct(id: string) {
@@ -117,7 +241,15 @@ export const useProductsStore = defineStore('products', () => {
     if (idx !== -1) {
       products.value.splice(idx, 1)
       persist()
+      // Fire-and-forget soft delete on server
+      api.delete(`/api/products/${encodeURIComponent(id)}`).catch(() => {})
     }
+  }
+
+  function resetToSeed() {
+    products.value = [...SEED_PRODUCTS]
+    updatedAtMap.value = {}
+    persist()
   }
 
   const productsByStore = computed((): Map<StoreId, Product[]> => {
@@ -128,5 +260,5 @@ export const useProductsStore = defineStore('products', () => {
     return map
   })
 
-  return { products, addCustomProduct, deleteProduct, productsByStore }
+  return { products, addCustomProduct, deleteProduct, resetToSeed, productsByStore, fetchFromServer, syncToServer }
 })
