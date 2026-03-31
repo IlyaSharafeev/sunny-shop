@@ -19,15 +19,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: notify-start
     steps:
-      - name: Debug Vercel API
+      - name: Poll Vercel and notify result
         env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          AUTHOR: ${{ github.event.head_commit.author.name }}
+          REPO: ${{ github.repository }}
         run: |
-          echo "=== ALL PROJECTS ==="
-          curl -s "https://api.vercel.com/v9/projects" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" | jq '[.projects[] | {id, name}]' 2>/dev/null
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+          STATUS="unknown"
 
-          echo "=== DEPLOYMENTS (no filter) ==="
-          curl -s "https://api.vercel.com/v6/deployments?limit=3" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" | jq '[.deployments[] | {uid, name, state, readyState, target}]' 2>/dev/null
+          for i in $(seq 1 10); do
+            sleep 30
+            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=1&target=production" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}")
+
+            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // "unknown"' 2>/dev/null || echo "unknown")
+            echo "Attempt $i: STATUS=$STATUS"
+
+            if [ "$STATUS" = "READY" ] || [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
+              break
+            fi
+          done
+
+          if [ "$STATUS" = "READY" ]; then
+            MSG="✅ Vercel deployed%0A📦 ${REPO}%0A🔖 ${SHORT_SHA}%0A💬 ${COMMIT_MSG}%0A👤 ${AUTHOR}"
+          elif [ "$STATUS" = "ERROR" ]; then
+            MSG="🔴 Vercel build FAILED%0A📦 ${REPO}%0A🔖 ${SHORT_SHA}%0A💬 ${COMMIT_MSG}%0A👤 ${AUTHOR}"
+          else
+            MSG="⚠️ Vercel deploy: ${STATUS}%0A📦 ${REPO}%0A🔖 ${SHORT_SHA}%0A💬 ${COMMIT_MSG}"
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d text="$MSG"
