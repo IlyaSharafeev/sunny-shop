@@ -35,7 +35,7 @@ jobs:
 
           for i in $(seq 1 10); do
             sleep 30
-            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=1&target=production" \
+            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=1" \
               -H "Authorization: Bearer ${VERCEL_TOKEN}")
 
             STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // "unknown"' 2>/dev/null || echo "unknown")
