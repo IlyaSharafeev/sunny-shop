@@ -1,5 +1,23 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
+
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+
+async function apiRequest<T>(method: string, path: string, body?: object): Promise<T> {
+  const token = localStorage.getItem('accessToken')
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
 
 export interface SharedItem {
   productClientId: string
@@ -29,22 +47,17 @@ type OnUpdateCallback = (items: SharedItem[]) => void
 let onUpdate: OnUpdateCallback | null = null
 
 export function useShareSession() {
-  const api = useApi()
-
   const participantCount = computed(() => participants.value.length + 1)
 
   async function createShare(): Promise<string> {
-    const data = await api.post<{ shareCode: string }>('/api/share', {})
-    if (!data) throw new Error('Failed to create share')
+    const data = await apiRequest<{ shareCode: string }>('POST', '/api/share', {})
     shareCode.value = data.shareCode
     isOwner.value = true
     return data.shareCode
   }
 
   async function validateCode(code: string): Promise<{ ownerName: string }> {
-    const data = await api.get<{ ownerName: string }>(`/api/share/${code}`)
-    if (!data) throw new Error('Invalid code')
-    return data
+    return apiRequest<{ ownerName: string }>('GET', `/api/share/${code}`)
   }
 
   function connect(code: string, callbacks?: { onUpdate?: OnUpdateCallback }) {
@@ -124,7 +137,7 @@ export function useShareSession() {
   }
 
   async function revokeShare() {
-    await api.delete('/api/share')
+    await apiRequest('DELETE', '/api/share')
     disconnect()
   }
 
