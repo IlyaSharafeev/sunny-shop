@@ -27,42 +27,55 @@ function checkSecret(req: Request, res: Response): boolean {
   return true
 }
 
-// POST /api/webhooks/netlify
-router.post('/netlify', async (req: Request, res: Response): Promise<void> => {
+// POST /api/webhooks/vercel
+router.post('/vercel', async (req: Request, res: Response): Promise<void> => {
   if (!checkSecret(req, res)) return
 
   const body = req.body as {
-    state?: string
-    site_name?: string
-    branch?: string
-    deploy_time?: number
-    error_message?: string
-    commit_ref?: string
-    title?: string
+    type?: string
+    payload?: {
+      deployment?: {
+        name?: string
+        url?: string
+        meta?: {
+          githubCommitMessage?: string
+          githubCommitAuthorName?: string
+          githubCommitRef?: string
+          githubCommitSha?: string
+        }
+      }
+    }
   }
 
-  const { state, site_name, branch, deploy_time, error_message, commit_ref, title } = body
-  const duration = deploy_time ? `${deploy_time}s` : '—'
-  const shortSha = commit_ref ? commit_ref.slice(0, 7) : '—'
+  const type = body.type
+  if (!type) { res.json({ ok: true }); return }
 
-  let message = ''
-
-  if (state === 'ready') {
-    message =
-      `✅ <b>Netlify deployed</b>\n` +
-      `📦 ${site_name ?? 'unknown'} · ${branch ?? 'main'}\n` +
-      `⏱ ${duration} · <code>${shortSha}</code>`
-    if (title) message += `\n💬 ${title}`
-  } else if (state === 'error') {
-    message =
-      `🔴 <b>Netlify build FAILED</b>\n` +
-      `📦 ${site_name ?? 'unknown'} · ${branch ?? 'main'}\n` +
-      `⏱ ${duration} · <code>${shortSha}</code>`
-    if (error_message) message += `\n❗ ${error_message}`
-  } else {
-    // building / enqueued — ignore
+  // Only notify on terminal events
+  if (!['deployment.succeeded', 'deployment.error', 'deployment.canceled'].includes(type)) {
     res.json({ ok: true })
     return
+  }
+
+  const dep = body.payload?.deployment
+  const name = dep?.name ?? 'unknown'
+  const branch = dep?.meta?.githubCommitRef ?? 'main'
+  const commitMsg = dep?.meta?.githubCommitMessage ?? ''
+  const author = dep?.meta?.githubCommitAuthorName ?? ''
+  const sha = dep?.meta?.githubCommitSha?.slice(0, 7) ?? ''
+
+  let message = ''
+  if (type === 'deployment.succeeded') {
+    message = `✅ <b>Vercel deployed</b>\n📦 ${name} · ${branch}`
+    if (sha) message += ` · <code>${sha}</code>`
+    if (commitMsg) message += `\n💬 ${commitMsg}`
+    if (author) message += ` <i>(${author})</i>`
+  } else if (type === 'deployment.error') {
+    message = `🔴 <b>Vercel build FAILED</b>\n📦 ${name} · ${branch}`
+    if (sha) message += ` · <code>${sha}</code>`
+    if (commitMsg) message += `\n💬 ${commitMsg}`
+    if (author) message += ` <i>(${author})</i>`
+  } else {
+    message = `⚠️ <b>Vercel deployment canceled</b>\n📦 ${name} · ${branch}`
   }
 
   await sendTelegram(message)
