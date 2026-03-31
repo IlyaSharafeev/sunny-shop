@@ -61,7 +61,7 @@ export function setupWsServer(server: Server) {
       // Validate JWT
       let userId: string
       try {
-        const payload = jwt.verify(token, config.jwtSecret) as { userId: string }
+        const payload = jwt.verify(token, config.jwt.accessSecret) as { userId: string }
         userId = payload.userId
       } catch {
         ws.close(1008, 'Invalid token')

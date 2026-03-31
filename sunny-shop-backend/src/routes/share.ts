@@ -9,11 +9,10 @@ const router = Router()
 router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthRequest).userId!
 
-  // Delete existing share codes for this user
   await prisma.sharedSession.deleteMany({ where: { ownerId: userId } })
 
-  const shareCode = randomBytes(4).toString('hex').toUpperCase() // e.g. "A3F9B2C1"
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
+  const shareCode = randomBytes(4).toString('hex').toUpperCase()
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
   await prisma.sharedSession.create({
     data: { shareCode, ownerId: userId, expiresAt },
@@ -24,11 +23,10 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
 
 // GET /api/share/:code — validate code and get owner info
 router.get('/:code', async (req: Request, res: Response): Promise<void> => {
-  const { code } = req.params
+  const code = req.params['code'] as string
 
   const shared = await prisma.sharedSession.findUnique({
     where: { shareCode: code },
-    include: { owner: { select: { id: true, name: true, avatarUrl: true } } },
   })
 
   if (!shared || shared.expiresAt < new Date()) {
@@ -36,10 +34,15 @@ router.get('/:code', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
+  const owner = await prisma.user.findUnique({
+    where: { id: shared.ownerId },
+    select: { name: true, avatarUrl: true },
+  })
+
   res.json({
     shareCode: shared.shareCode,
-    ownerName: shared.owner.name ?? 'Власник',
-    ownerAvatar: shared.owner.avatarUrl,
+    ownerName: owner?.name ?? 'Власник',
+    ownerAvatar: owner?.avatarUrl ?? null,
     expiresAt: shared.expiresAt,
   })
 })
