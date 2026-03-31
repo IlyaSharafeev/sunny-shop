@@ -20,25 +20,49 @@ jobs:
     runs-on: ubuntu-latest
     needs: notify-start
     steps:
-      - name: Wait for Vercel deploy
-        run: sleep 60
-
-      - name: Check Vercel deployment status
-        id: vercel_check
+      - name: Wait and poll Vercel deployment status
         run: |
-          RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&limit=1&target=production" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}")
-          STATUS=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin)['deployments'][0]; print(d.get('state','unknown'))" 2>/dev/null || echo "unknown")
-          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          SHA="${{ github.sha }}"
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
           COMMIT="${{ github.event.head_commit.message }}"
           AUTHOR="${{ github.event.head_commit.author.name }}"
 
+          STATUS="unknown"
+          for i in $(seq 1 10); do
+            sleep 30
+            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&limit=5" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}")
+
+            # Find deployment matching our commit SHA
+            STATUS=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+deployments = data.get('deployments', [])
+for d in deployments:
+    meta = d.get('meta', {})
+    if meta.get('githubCommitSha', '').startswith('$SHA'[:7]) or d.get('meta', {}).get('githubCommitSha') == '$SHA':
+        print(d.get('state', 'unknown'))
+        sys.exit(0)
+# fallback: latest deployment
+if deployments:
+    print(deployments[0].get('state', 'unknown'))
+else:
+    print('unknown')
+" 2>/dev/null || echo "unknown")
+
+            echo "Attempt $i: STATUS=$STATUS"
+
+            if [ "$STATUS" = "READY" ] || [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
+              break
+            fi
+          done
+
           if [ "$STATUS" = "READY" ]; then
-            MSG="✅ <b>Vercel deployed</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHA}</code>%0A💬 ${COMMIT}%0A👤 ${AUTHOR}"
+            MSG="✅ <b>Vercel deployed</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHORT_SHA}</code>%0A💬 ${COMMIT}%0A👤 ${AUTHOR}"
           elif [ "$STATUS" = "ERROR" ]; then
-            MSG="🔴 <b>Vercel build FAILED</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHA}</code>%0A💬 ${COMMIT}%0A👤 ${AUTHOR}"
+            MSG="🔴 <b>Vercel build FAILED</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHORT_SHA}</code>%0A💬 ${COMMIT}%0A👤 ${AUTHOR}"
           else
-            MSG="⚠️ <b>Vercel deploy: ${STATUS}</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHA}</code>"
+            MSG="⚠️ <b>Vercel deploy: ${STATUS}</b>%0A📦 ${{ github.repository }}%0A🔖 <code>${SHORT_SHA}</code>%0A💬 ${COMMIT}"
           fi
 
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
