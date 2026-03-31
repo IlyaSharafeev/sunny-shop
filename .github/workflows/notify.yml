@@ -33,21 +33,32 @@ jobs:
           SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
           STATUS="unknown"
 
-          for i in $(seq 1 10); do
-            sleep 30
-            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=5" \
-              -H "Authorization: Bearer ${VERCEL_TOKEN}")
+          # Debug: check what API returns on first call
+          sleep 30
+          RESPONSE=$(curl -s "https://api.vercel.com/v13/deployments?projectId=${VERCEL_PROJECT_ID}&limit=3&target=production" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}")
+          echo "=== DEBUG API RESPONSE ==="
+          echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+          echo "=========================="
 
-            echo "Raw response: $RESPONSE" | head -c 500
-
-            # Try readyState first, then state
-            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // .deployments[0].state // "unknown"' 2>/dev/null || echo "unknown")
+          for i in $(seq 1 9); do
+            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // empty' 2>/dev/null)
+            if [ -z "$STATUS" ]; then
+              STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].state // empty' 2>/dev/null)
+            fi
+            if [ -z "$STATUS" ]; then
+              STATUS="unknown"
+            fi
 
             echo "Attempt $i: STATUS=$STATUS"
 
             if [ "$STATUS" = "READY" ] || [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
               break
             fi
+
+            sleep 30
+            RESPONSE=$(curl -s "https://api.vercel.com/v13/deployments?projectId=${VERCEL_PROJECT_ID}&limit=3&target=production" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}")
           done
 
           if [ "$STATUS" = "READY" ]; then
