@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import http from 'http'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -13,7 +14,9 @@ import settingsRoutes from './routes/settings'
 import pushRoutes from './routes/push'
 import statsRoutes from './routes/stats'
 import webhookRoutes from './routes/webhooks'
+import shareRoutes from './routes/share'
 import { errorHandler } from './middleware/errorHandler'
+import { setupWsServer } from './lib/wsServer'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -77,12 +80,17 @@ app.use('/api/settings', apiLimiter, settingsRoutes)
 app.use('/api/push', apiLimiter, pushRoutes)
 app.use('/api/stats', apiLimiter, statsRoutes)
 app.use('/api/webhooks', webhookRoutes)
+app.use('/api/share', apiLimiter, shareRoutes)
 
 // Global error handler
 app.use(errorHandler)
 
+// Create HTTP server and attach WebSocket
+const server = http.createServer(app)
+setupWsServer(server)
+
 const port = parseInt(process.env.PORT || '3000', 10)
-app.listen(port, '0.0.0.0', () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`Server running on port ${port}`)
 })
 

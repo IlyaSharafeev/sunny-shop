@@ -23,6 +23,8 @@ import StoreManagerModal from '@/components/StoreManagerModal.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useOnlineStatus } from '@/composables/useOnlineStatus'
+import { useShareSession } from '@/composables/useShareSession'
+import { useToast } from '@/composables/useToast'
 
 const { status: syncStatus } = useSyncStatus()
 const { isOnline } = useOnlineStatus()
@@ -235,6 +237,115 @@ watch(shakeDetected, (v) => {
     showShakeClearDialog.value = true
   }
 })
+
+// ── Share session ─────────────────────────────────────────────────
+const shareSession = useShareSession()
+const toast = useToast()
+const showShareModal = ref(false)
+const shareJoinCode = ref('')
+const shareJoinLoading = ref(false)
+const shareJoinError = ref('')
+const shareCreating = ref(false)
+const shareCreatedCode = ref('')
+
+// Check URL for share code on mount
+onMounted(() => {
+  const url = new URL(window.location.href)
+  const code = url.searchParams.get('share')
+  if (code) {
+    shareJoinCode.value = code
+    showShareModal.value = true
+    // Clean URL
+    url.searchParams.delete('share')
+    window.history.replaceState({}, '', url.toString())
+  }
+})
+
+async function openShare() {
+  showShareModal.value = true
+  if (!shareSession.isOwner.value && !shareSession.isActive.value) {
+    await startSharing()
+  }
+}
+
+async function startSharing() {
+  shareCreating.value = true
+  try {
+    const code = await shareSession.createShare()
+    shareCreatedCode.value = code
+    connectAsOwner(code)
+  } catch {
+    toast.error('Не вдалося створити посилання')
+  } finally {
+    shareCreating.value = false
+  }
+}
+
+function connectAsOwner(code: string) {
+  shareSession.connect(code, {
+    onUpdate: (items) => sessionStore.enterSharedMode(items),
+  })
+}
+
+async function joinSharedSession() {
+  if (!shareJoinCode.value.trim()) return
+  shareJoinLoading.value = true
+  shareJoinError.value = ''
+  try {
+    await shareSession.validateCode(shareJoinCode.value.trim().toUpperCase())
+    shareSession.connect(shareJoinCode.value.trim().toUpperCase(), {
+      onUpdate: (items) => sessionStore.enterSharedMode(items),
+    })
+    showShareModal.value = false
+    toast.success('Приєднано до спільного закупу!')
+  } catch {
+    shareJoinError.value = 'Невірний або прострочений код'
+  } finally {
+    shareJoinLoading.value = false
+  }
+}
+
+function copyShareLink() {
+  const url = shareSession.getShareUrl(shareCreatedCode.value)
+  navigator.clipboard.writeText(url).then(() => toast.success('Посилання скопійовано!'))
+}
+
+function leaveShare() {
+  shareSession.disconnect()
+  sessionStore.exitSharedMode()
+  showShareModal.value = false
+  shareCreatedCode.value = ''
+}
+
+function closeShareModal() {
+  showShareModal.value = false
+}
+
+// Session actions — go through WS when in shared mode
+function handleToggle(productId: string) {
+  if (sessionStore.isSharedMode) {
+    const price = sessionStore.getPrice.value(productId)
+    shareSession.toggle(productId, price)
+  } else {
+    sessionStore.toggle(productId)
+  }
+}
+
+function handleUpdateQty(productId: string, qty: number) {
+  if (sessionStore.isSharedMode) {
+    shareSession.setQty(productId, qty)
+  } else {
+    sessionStore.updateQty(productId, qty)
+  }
+}
+
+function handleUpdatePrice(productId: string, price: number) {
+  if (sessionStore.isSharedMode) {
+    shareSession.setPrice(productId, price)
+  } else {
+    sessionStore.updatePrice(productId, price)
+  }
+}
 </script>
 
 <template>
@@ -254,6 +365,7 @@ watch(shakeDetected, (v) => {
           :title="!isOnline ? 'Офлайн' : syncStatus === 'syncing' ? 'Синхронізація...' : syncStatus === 'error' ? 'Помилка синхронізації' : ''"
         />
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>
+        <button class="icon-btn share-icon-btn" :class="{ active: shareSession.isActive.value }" @click="openShare" title="Спільний закуп">👥</button>
         <button class="icon-btn" @click="isThemeOpen = !isThemeOpen" :aria-label="i18n.t('theme.title')">🎨</button>
         <LangToggle />
         <ProfileAvatar id="onb-profile-avatar" />
@@ -319,6 +431,17 @@ watch(shakeDetected, (v) => {
       >
         ★ {{ i18n.t('sort.frequency') }}
       </button>
+    </div>
+
+    <!-- Shared mode banner -->
+    <div v-if="shareSession.isActive.value" class="shared-banner">
+      <span class="shared-banner-icon">👥</span>
+      <span class="shared-banner-text">
+        <template v-if="shareSession.isOwner.value">Спільний закуп</template>
+        <template v-else>Закуп з {{ shareSession.ownerName.value }}</template>
+        <span class="shared-count" v-if="shareSession.participantCount.value > 1"> · {{ shareSession.participantCount.value }} осіб</span>
+      </span>
+      <button class="shared-leave-btn" @click="leaveShare">Вийти</button>
     </div>
 
     <!-- Content area -->
@@ -416,6 +539,72 @@ watch(shakeDetected, (v) => {
       v-if="isStoreManagerOpen"
       @close="isStoreManagerOpen = false"
     />
+
+    <!-- Share session modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="showShareModal" class="share-modal-overlay" @click.self="closeShareModal">
+          <div class="share-modal">
+            <div class="share-modal-header">
+              <span class="share-modal-title">👥 Спільний закуп</span>
+              <button class="share-modal-close" @click="closeShareModal">✕</button>
+            </div>
+
+            <!-- Active as owner — show code -->
+            <template v-if="shareSession.isOwner.value && shareSession.isActive.value">
+              <p class="share-modal-desc">Поділіться кодом або посиланням з іншою людиною</p>
+              <div class="share-code-box">
+                <span class="share-code">{{ shareCreatedCode }}</span>
+              </div>
+              <div class="share-actions">
+                <button class="share-btn-primary" @click="copyShareLink">📋 Скопіювати посилання</button>
+              </div>
+              <div v-if="shareSession.participantCount.value > 1" class="share-participants">
+                <span class="share-participants-label">Онлайн: {{ shareSession.participantCount.value }} осіб</span>
+              </div>
+              <button class="share-btn-danger" @click="leaveShare">Зупинити спільний закуп</button>
+            </template>
+
+            <!-- Active as joiner -->
+            <template v-else-if="shareSession.isActive.value && !shareSession.isOwner.value">
+              <p class="share-modal-desc">Ви в спільному закупі з <b>{{ shareSession.ownerName.value }}</b></p>
+              <button class="share-btn-danger" @click="leaveShare">Вийти з закупу</button>
+            </template>
+
+            <!-- Not active — show join/create -->
+            <template v-else>
+              <!-- Join by code -->
+              <div class="share-section">
+                <p class="share-section-label">Приєднатися за кодом</p>
+                <div class="share-join-row">
+                  <input
+                    v-model="shareJoinCode"
+                    class="share-code-input"
+                    placeholder="Введіть код (напр. A3F9B2C1)"
+                    maxlength="8"
+                    @keyup.enter="joinSharedSession"
+                  />
+                  <button class="share-btn-primary" :disabled="shareJoinLoading || !shareJoinCode.trim()" @click="joinSharedSession">
+                    {{ shareJoinLoading ? '...' : 'Приєднатися' }}
+                  </button>
+                </div>
+                <p v-if="shareJoinError" class="share-error">{{ shareJoinError }}</p>
+              </div>
+
+              <div class="share-divider">або</div>
+
+              <!-- Create share -->
+              <div class="share-section">
+                <p class="share-section-label">Поділитися своїм закупом</p>
+                <button class="share-btn-primary" :disabled="shareCreating" @click="startSharing">
+                  {{ shareCreating ? 'Створюємо...' : '🔗 Створити посилання' }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Confirm: clear all -->
     <ConfirmDialog
@@ -859,4 +1048,193 @@ watch(shakeDetected, (v) => {
     transition: none;
   }
 }
+
+/* ── Share session ────────────────────────────────────────────────── */
+.share-icon-btn.active {
+  color: var(--primary);
+}
+
+.shared-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--primary) 15%, var(--card));
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  font-size: 13px;
+}
+
+.shared-banner-icon { font-size: 16px; }
+
+.shared-banner-text {
+  flex: 1;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.shared-count { color: var(--muted); font-weight: 400; }
+
+.shared-leave-btn {
+  font-size: 12px;
+  color: var(--danger);
+  font-weight: 600;
+  padding: 4px 10px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+}
+
+/* Modal */
+.share-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.share-modal {
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.share-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.share-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.share-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-modal-desc {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.share-code-box {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.share-code {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--primary);
+  font-family: monospace;
+}
+
+.share-actions { display: flex; gap: 8px; }
+
+.share-btn-primary {
+  flex: 1;
+  min-height: 44px;
+  background: var(--primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.share-btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.share-btn-danger {
+  width: 100%;
+  min-height: 44px;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+}
+
+.share-participants {
+  text-align: center;
+  font-size: 13px;
+  color: var(--primary);
+}
+
+.share-section { display: flex; flex-direction: column; gap: 8px; }
+
+.share-section-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0;
+}
+
+.share-join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.share-code-input {
+  flex: 1;
+  height: 44px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  padding: 0 12px;
+  outline: none;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.share-code-input:focus { border-color: var(--primary); }
+
+.share-error { font-size: 12px; color: var(--danger); margin: 0; }
+
+.share-divider {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  position: relative;
+}
+
+.share-divider::before,
+.share-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--border);
+}
+
+.share-divider::before { left: 0; }
+.share-divider::after { right: 0; }
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 200ms ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>

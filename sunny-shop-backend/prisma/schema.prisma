@@ -25,6 +25,16 @@ model User {
   settings           UserSettings?
   refreshTokens      RefreshToken[]
   pushSubscriptions  PushSubscription[]
+  sharedSessions     SharedSession[]
+}
+
+model SharedSession {
+  id        String   @id @default(cuid())
+  shareCode String   @unique
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }
 
 model RefreshToken {

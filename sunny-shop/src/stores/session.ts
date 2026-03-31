@@ -124,5 +124,30 @@ export const useSessionStore = defineStore('session', () => {
     checkedItems.value.find(i => i.productId === productId)?.price ?? 0
   )
 
-  return { checkedItems, toggle, updateQty, updatePrice, finishSession, clearCurrent, loadFromSession, fetchFromServer, isChecked, getQty, getPrice, checkedCount, totalCost }
+  // ── Shared mode ───────────────────────────────────────────────────
+  const isSharedMode = ref(false)
+  const _ownItems = ref<CheckedItem[]>([])
+
+  function enterSharedMode(sharedItems: { productClientId: string; quantity: number; price: number }[]) {
+    if (!isSharedMode.value) {
+      _ownItems.value = [...checkedItems.value]
+      isSharedMode.value = true
+    }
+    checkedItems.value = sharedItems.map(i => ({
+      productId: i.productClientId,
+      quantity: i.quantity,
+      price: i.price,
+    }))
+  }
+
+  function exitSharedMode() {
+    if (isSharedMode.value) {
+      checkedItems.value = [..._ownItems.value]
+      _ownItems.value = []
+      isSharedMode.value = false
+      persist()
+    }
+  }
+
+  return { checkedItems, toggle, updateQty, updatePrice, finishSession, clearCurrent, loadFromSession, fetchFromServer, isChecked, getQty, getPrice, checkedCount, totalCost, isSharedMode, enterSharedMode, exitSharedMode }
 })
